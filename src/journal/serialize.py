@@ -6,7 +6,7 @@ from pathlib import Path
 from .report import FullReport, MemberReport, WindowStats
 from .window import day_number, threshold
 
-PAYLOAD_VERSION = 1
+PAYLOAD_VERSION = 2
 
 
 def _iso(dt: datetime | None) -> str | None:
