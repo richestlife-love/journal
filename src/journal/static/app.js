@@ -11,11 +11,9 @@
   const TOTAL_DAYS = 7;
 
   const refreshedEl = document.getElementById("refreshed");
-  const weekHeadEl = document.getElementById("week-head");
-  const windowMetaEl = document.querySelector("#weeks .window-meta");
-  const progressEl = document.getElementById("progress");
-  const pipsEl = progressEl.querySelector(".pips");
-  const progressMetaEl = progressEl.querySelector(".progress-meta");
+  const titleLabelEl = document.querySelector("#week-head .title-label");
+  const titleChipEl = document.querySelector(".section-head-text .title-chip");
+  const titleMetaEl = document.querySelector(".section-head-text .title-meta");
   const membersOl = document.querySelector("#weeks [data-members]");
   const prevBtn = document.querySelector(".nav-arrow.prev");
   const nextBtn = document.querySelector(".nav-arrow.next");
@@ -44,13 +42,16 @@
     return `${Math.floor(diff / 86400)}d ago`;
   }
 
-  function fmtWindow(w) {
-    const startStr = new Date(w.start).toLocaleDateString("en-SG", {
-      timeZone: "Asia/Singapore", month: "short", day: "numeric",
-    });
-    const endStr = new Date(w.end).toLocaleDateString("en-SG", {
-      timeZone: "Asia/Singapore", year: "numeric", month: "short", day: "numeric",
-    });
+  function fmtRange(w) {
+    const SG = { timeZone: "Asia/Singapore" };
+    const start = new Date(w.start);
+    const end = new Date(w.end);
+    const startMonth = start.toLocaleDateString("en-SG", { ...SG, month: "short" });
+    const endMonth = end.toLocaleDateString("en-SG", { ...SG, month: "short" });
+    const startDay = start.toLocaleDateString("en-SG", { ...SG, day: "numeric" });
+    const endDay = end.toLocaleDateString("en-SG", { ...SG, day: "numeric" });
+    const startStr = `${startMonth} ${startDay}`;
+    const endStr = startMonth === endMonth ? endDay : `${endMonth} ${endDay}`;
     return `${startStr} – ${endStr}`;
   }
 
@@ -133,31 +134,6 @@
     membersOl.replaceChildren(frag);
   }
 
-  function renderProgress(win, isCurrent, now) {
-    pipsEl.innerHTML = "";
-    const dayRaw = isCurrent ? win.day : null;
-    // Sentinel TOTAL_DAYS + 1 makes every pip "filled" for the previous-week view.
-    const day = isCurrent
-      ? (dayRaw == null ? 0 : Math.max(0, Math.min(dayRaw, TOTAL_DAYS)))
-      : TOTAL_DAYS + 1;
-    for (let i = 1; i <= TOTAL_DAYS; i++) {
-      const pip = document.createElement("span");
-      pip.className = "pip";
-      if (i < day) pip.classList.add("filled");
-      else if (i === day) pip.classList.add("today");
-      pipsEl.appendChild(pip);
-    }
-    pipsEl.setAttribute(
-      "aria-label",
-      isCurrent && dayRaw != null ? `Day ${dayRaw} of ${TOTAL_DAYS}` : `${TOTAL_DAYS} of ${TOTAL_DAYS} days`,
-    );
-    if (!isCurrent) {
-      progressMetaEl.textContent = "Week complete";
-    } else {
-      progressMetaEl.textContent = dayRaw == null ? "Window closed" : fmtCountdown(win.end, now);
-    }
-  }
-
   let view = "current";
   let firstPaint = true;
 
@@ -166,10 +142,12 @@
     const win = isCurrent ? data.windows.current : data.windows.previous;
     const now = Date.now();
 
-    weekHeadEl.textContent = isCurrent ? "This Week" : "Last Week";
-    windowMetaEl.textContent = fmtWindow(win);
+    titleLabelEl.textContent = isCurrent ? "This Week" : "Last Week";
+    titleMetaEl.textContent = fmtRange(win);
+    const showCountdown = isCurrent && win.day != null;
+    titleChipEl.hidden = !showCountdown;
+    titleChipEl.textContent = showCountdown ? fmtCountdown(win.end, now) : "";
 
-    renderProgress(win, isCurrent, now);
     renderList(data.members, isCurrent, now, firstPaint);
     firstPaint = false;
 

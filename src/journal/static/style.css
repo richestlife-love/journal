@@ -165,7 +165,7 @@ body {
 .section-head {
   margin-bottom: 1rem;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.85rem;
   flex-wrap: wrap;
 }
@@ -173,9 +173,8 @@ body {
 .section-head-text {
   flex: 1;
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1.25rem;
+  align-items: center;
+  gap: 0.6rem;
   flex-wrap: wrap;
   min-width: 0;
 }
@@ -219,61 +218,32 @@ body {
   cursor: not-allowed;
 }
 
-.window-meta {
-  margin: 0;
+.title-chip {
   font-family: var(--mono);
-  font-size: 1rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-feature-settings: "tnum";
+  font-weight: 400;
+  line-height: 1;
+  padding: 0.18rem 0.55rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  white-space: nowrap;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.title-meta {
+  font-family: var(--mono);
+  font-size: 1.15rem;
   letter-spacing: 0.02em;
   color: var(--ink-soft);
   font-feature-settings: "tnum";
-  min-width: 0;
   align-self: center;
-}
-
-
-/* ─── Day pips (current week only) ─────────────────────── */
-
-.progress {
-  margin: 0.25rem 0 1.25rem;
-  padding: 0.85rem 0;
-  border-top: 1px solid var(--rule-soft);
-  border-bottom: 1px solid var(--rule-soft);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1.25rem;
-  flex-wrap: wrap;
-}
-
-.pips {
-  display: inline-flex;
-  gap: 0.45rem;
-}
-
-.pip {
-  width: 0.62rem;
-  height: 0.62rem;
-  border-radius: 50%;
-  border: 1px solid var(--ink-soft);
-  background: transparent;
-  display: inline-block;
-  position: relative;
-}
-
-.pip.filled { background: var(--ink); border-color: var(--ink); }
-.pip.today {
-  background: var(--accent);
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(138,70,35,0.28);
-}
-
-.progress-meta {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: 0.85rem;
-  letter-spacing: 0.02em;
-  color: var(--accent);
-  font-feature-settings: "tnum";
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 /* ─── Members list ─────────────────────────────────────── */
@@ -501,15 +471,24 @@ body {
 
   .section-head {
     flex-wrap: nowrap;
-    align-items: flex-start;
+    align-items: center;
   }
   .section-head-text {
     flex-direction: column;
-    align-items: flex-start;
-    justify-content: flex-start;
+    align-items: center;
+    justify-content: center;
     gap: 0.35rem;
   }
-  .window-meta { font-size: 0.85rem; word-break: break-word; }
+  .section-head h2 {
+    text-align: center;
+  }
+  .title-meta {
+    font-size: 1rem;
+    word-break: break-word;
+    text-align: center;
+    margin-left: 0;
+  }
+  .title-chip { font-size: 0.66rem; }
 
   .entry .count .track { display: none; }
 
@@ -546,6 +525,4 @@ body {
   .entry .last   { grid-area: last; justify-self: end; }
 
   .entry::before { display: none; }
-
-  .progress { padding: 0.75rem 0; flex-direction: column; align-items: flex-start; }
 }
