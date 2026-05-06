@@ -44,6 +44,17 @@ A member's submission count for a given window is the number of **distinct journ
 
 The truncated preview in the search-results table is **not** sufficient for dedup — we fetch each in-window entry's full page to extract the body.
 
+### Hash cache
+
+Entries on the source platform are immutable (assumed). We cache the normalized-body hash by entry ID across runs and never invalidate it. The cache is monotonic-add-only.
+
+- Storage: a single `cache.json` file on a dedicated `cache` orphan branch in the same repo.
+- Schema: `{ "version": 1, "entries": { "<entry_id>": "sha256:<hex>" } }`.
+- Lookup flow per row: if `entry_id` is in the cache, reuse the hash; otherwise fetch the entry page, compute the hash, write it back.
+- After warm-up, only new entries are fetched (~20–40 entries per hourly run vs. ~400–600 cold).
+- No TTL, no `fetched_at`, no pruning. Cache size at scale is negligible (one short string per entry).
+- Workflow concurrency is set to a single in-flight refresh so the orphan branch has only one writer at a time.
+
 ## Day numbering and "on track" threshold
 
 A "day" is a 24-hour block from 08:00 SGT to 08:00 SGT. Within a window:
@@ -143,16 +154,23 @@ A single static HTML page with two stacked tables.
 **Single static site, regenerated on a schedule.**
 
 ```
-GitHub Actions (cron + manual)
-  └── uv run python -m journal build
+GitHub Actions (cron + manual, concurrency: refresh)
+  ├── checkout main → working dir
+  ├── checkout cache branch → .cache/
+  └── uv run python -m journal build --cache .cache/cache.json
+       ├── load cache.json (entry_id → hash)
        ├── fetch SG member list (filter_11 options)
        ├── for each member:
        │     ├── fetch search results for [last completed week .. current week]
        │     ├── parse rows; assign each to a window
-       │     └── for each in-window row, fetch entry page for full body
+       │     └── for each in-window row:
+       │           ├── if entry_id in cache → reuse hash
+       │           └── else → fetch entry page, hash body, write to cache
        ├── dedup per (member, window) by body hash
        ├── compute count, last submission, status (per dedup mode)
+       ├── save cache.json
        └── render site/index.html and site/data.json
+  ├── commit + push cache.json to cache branch (if changed)
   └── actions/deploy-pages → GitHub Pages
 ```
 
@@ -166,7 +184,8 @@ GitHub Actions (cron + manual)
 src/journal/
   __init__.py
   __main__.py          # CLI: `uv run python -m journal build [--out site]`
-  client.py            # httpx fetch + BeautifulSoup4 parse for search page and entry page
+  client.py            # httpx fetch + selectolax parse for search page and entry page
+  cache.py             # entry_id → body-hash JSON cache (monotonic, immutable entries assumed)
   window.py            # SGT 8am-Wed window math, day numbering, threshold
   dedup.py             # body normalization (HTML strip + whitespace collapse) + grouping
   report.py            # per-member aggregate (count, last_submission, status) for both modes
@@ -180,6 +199,7 @@ tests/
     search-page.html        # captured from real platform
     entry-page.html         # captured from real platform
   test_client.py
+  test_cache.py
   test_window.py
   test_dedup.py
   test_report.py
@@ -193,11 +213,12 @@ site/                   # build output, gitignored
 ## Module responsibilities
 
 - `client.py` — pure HTTP/HTML layer. Functions: `fetch_member_list() -> list[str]`, `fetch_search(name, start_date, end_date) -> list[Row]`, `fetch_entry_body(entry_url) -> str`. `Row` carries `submission_ts: datetime` (SGT-aware), `entry_id: str`, `entry_url: str`, `preview: str`. No business logic, no time-window filtering.
+- `cache.py` — `EntryCache.load(path) -> EntryCache`, `get(entry_id) -> str | None`, `put(entry_id, hash_) -> None`, `save() -> None`. JSON file backed. No invalidation. Knows nothing about windows or members.
 - `window.py` — time-only logic: `current_window(now) -> (start, end)`, `previous_window(now) -> (start, end)`, `day_number(t, window) -> int (1..7)`, `threshold(t, window) -> int (0..7)`. All datetimes are SGT-aware (`zoneinfo("Asia/Singapore")`).
-- `dedup.py` — `normalize_body(html_or_text: str) -> str`, `dedup_count(bodies: list[str]) -> int`. Pure functions over already-fetched bodies.
-- `report.py` — composes the above to produce, per member per window, both deduped and raw counts, last-submission timestamp, and status.
+- `dedup.py` — `normalize_body(html_or_text: str) -> str`, `body_hash(text: str) -> str`, `dedup_count(hashes: list[str]) -> int`. Pure functions; takes already-fetched-or-cached hashes.
+- `report.py` — composes the above to produce, per member per window, both deduped and raw counts, last-submission timestamp, and status. Calls `cache.get` first; only invokes `client.fetch_entry_body` on cache miss.
 - `render.py` — jinja2 template + JSON serializer. Owns formatting (e.g. relative time, "Day N of 7", deadline countdown).
-- `__main__.py` — wires the pieces, handles CLI flags, exits non-zero on catastrophic failures (e.g. cannot reach the platform at all).
+- `__main__.py` — wires the pieces, handles CLI flags (`--cache <path>`, `--out <dir>`), exits non-zero on catastrophic failures (e.g. cannot reach the platform at all).
 
 ## Error handling
 
@@ -210,19 +231,19 @@ site/                   # build output, gitignored
 - **Parser tests** use captured real HTML in `tests/fixtures/` (we already have one for member "Jet" — to be saved as a fixture). Snapshot the parsed output.
 - **Window math tests** cover boundary cases: exactly 08:00 SGT on Wed (window roll), DST irrelevant for Singapore but verified, day-N transitions at each 08:00.
 - **Dedup tests** cover: identical text, identical text with different whitespace, identical text with different HTML wrapping, two truly distinct journals.
+- **Cache tests** cover: hit returns stored hash without invoking fetcher, miss invokes fetcher and persists, save+reload round-trips, malformed/missing file degrades to empty cache.
 - **Report tests** verify status transitions across all (count, threshold) cells.
 - No live network in tests. The HTTP layer is mocked or the parser is fed fixtures directly.
 
 ## Out of scope (not in v1)
 
 - Per-day grid view (one column per day).
-- Caching entry bodies across runs (each run re-fetches).
 - Other regions (filter_7..10, filter_12, filter_13). The code path generalizes trivially when needed.
 - Authentication, write actions, or member-facing notifications.
 - Historical archive beyond the last completed week.
 
 ## Dependencies
 
-- Runtime: `httpx`, `beautifulsoup4` (with `lxml` parser), `jinja2`. Stdlib `zoneinfo`, `hashlib`, `datetime`.
+- Runtime: `httpx`, `selectolax`, `jinja2`. Stdlib `zoneinfo`, `hashlib`, `datetime`.
 - Dev: `pytest`.
 - Python 3.14, managed by `uv` (already pinned in `.python-version` and `pyproject.toml`).
