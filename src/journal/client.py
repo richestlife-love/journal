@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 import httpx
 from selectolax.parser import HTMLParser
 
-from .dedup import normalize_body
+from journal.dedup import normalize_body
 
 _SGT = ZoneInfo("Asia/Singapore")
 _TS_RE = re.compile(r"(\d{4})-(\d{2})-(\d{2})\s+at\s+(\d{2}):(\d{2})")
@@ -74,12 +74,14 @@ def parse_search_rows(html: str) -> list[Row]:
 
         preview = preview_cell.text(separator=" ").strip() if preview_cell else ""
 
-        rows.append(Row(
-            submission_ts=submission_ts,
-            entry_id=entry_id,
-            entry_url=href,
-            preview=preview,
-        ))
+        rows.append(
+            Row(
+                submission_ts=submission_ts,
+                entry_id=entry_id,
+                entry_url=href,
+                preview=preview,
+            )
+        )
     return rows
 
 
@@ -115,9 +117,9 @@ def fetch_search(
     """GET the search results for a single member and date range."""
     params = {
         "filter_3[start]": start.strftime("%m/%d/%Y"),
-        "filter_3[end]":   end.strftime("%m/%d/%Y"),
-        "filter_11":       member,
-        "mode":            "all",
+        "filter_3[end]": end.strftime("%m/%d/%Y"),
+        "filter_11": member,
+        "mode": "all",
     }
     resp = client.get(SEARCH_URL, params=params)
     resp.raise_for_status()

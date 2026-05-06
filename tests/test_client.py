@@ -1,8 +1,19 @@
-from datetime import datetime
+from datetime import date
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from journal.client import parse_member_list, parse_search_rows
+import httpx
+import pytest
+
+from journal.client import (
+    SEARCH_URL,
+    fetch_entry_body,
+    fetch_member_list,
+    fetch_search,
+    parse_entry_body,
+    parse_member_list,
+    parse_search_rows,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -66,18 +77,6 @@ def test_parse_search_rows_handles_empty_results():
     assert rows == []
 
 
-import httpx
-import pytest
-
-from journal.client import (
-    parse_entry_body,
-    fetch_member_list,
-    fetch_search,
-    fetch_entry_body,
-    SEARCH_URL,
-)
-
-
 def test_parse_entry_body_extracts_journal_text():
     html = (FIXTURES / "entry-page-158567.html").read_text()
     body = parse_entry_body(html)
@@ -103,7 +102,9 @@ def test_fetch_member_list_uses_search_url_with_no_params():
 
     def handler(request: httpx.Request) -> httpx.Response:
         captured["url"] = str(request.url)
-        return httpx.Response(200, text=(FIXTURES / "search-page-empty.html").read_text())
+        return httpx.Response(
+            200, text=(FIXTURES / "search-page-empty.html").read_text()
+        )
 
     with _mock_client(handler) as client:
         members = fetch_member_list(client)
@@ -119,7 +120,6 @@ def test_fetch_search_passes_filters_as_get_params():
         captured["params"] = dict(request.url.params)
         return httpx.Response(200, text=(FIXTURES / "search-page-jet.html").read_text())
 
-    from datetime import date
     with _mock_client(handler) as client:
         rows = fetch_search(client, "Jet", date(2026, 4, 29), date(2026, 5, 6))
 
@@ -132,7 +132,9 @@ def test_fetch_search_passes_filters_as_get_params():
 
 def test_fetch_entry_body_returns_normalized_body_text():
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, text=(FIXTURES / "entry-page-158567.html").read_text())
+        return httpx.Response(
+            200, text=(FIXTURES / "entry-page-158567.html").read_text()
+        )
 
     with _mock_client(handler) as client:
         body = fetch_entry_body(client, "https://example/entry/158567/")
@@ -145,7 +147,6 @@ def test_fetch_search_raises_on_http_error():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(502)
 
-    from datetime import date
     with _mock_client(handler) as client:
         with pytest.raises(httpx.HTTPStatusError):
             fetch_search(client, "Jet", date(2026, 4, 29), date(2026, 5, 6))

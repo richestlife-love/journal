@@ -2,10 +2,10 @@ from dataclasses import dataclass
 from datetime import datetime, date, timedelta
 from typing import Callable, Literal
 
-from .cache import EntryCache
-from .client import Row
-from .dedup import body_hash, dedup_count
-from .window import current_window, previous_window, threshold
+from journal.cache import EntryCache
+from journal.client import Row
+from journal.dedup import body_hash, dedup_count
+from journal.window import current_window, previous_window, threshold
 
 Status = Literal["done", "on_track", "behind"]
 TARGET = 7
@@ -58,7 +58,9 @@ def _build_window_stats(
         status = _status_current(count, threshold(now, window))
     else:
         status = _status_previous(count)
-    return WindowStats(count=count, status=status, last_submission=last_ts, dropped_rows=dropped)
+    return WindowStats(
+        count=count, status=status, last_submission=last_ts, dropped_rows=dropped
+    )
 
 
 def build_member_report(
@@ -97,10 +99,16 @@ def build_member_report(
         cache.put(r.entry_id, h)
         hashes[r.entry_id] = h
 
-    cur_stats = _build_window_stats(in_cur, hashes, dropped_cur, is_current=True, now=now, window=cur)
-    prev_stats = _build_window_stats(in_prev, hashes, dropped_prev, is_current=False, now=now, window=prev)
+    cur_stats = _build_window_stats(
+        in_cur, hashes, dropped_cur, is_current=True, now=now, window=cur
+    )
+    prev_stats = _build_window_stats(
+        in_prev, hashes, dropped_prev, is_current=False, now=now, window=prev
+    )
 
-    return MemberReport(name=name, fetch_failed=None, current=cur_stats, previous=prev_stats)
+    return MemberReport(
+        name=name, fetch_failed=None, current=cur_stats, previous=prev_stats
+    )
 
 
 @dataclass(frozen=True)
@@ -111,7 +119,9 @@ class FullReport:
     members: list[MemberReport]
 
 
-def _calendar_range(prev: tuple[datetime, datetime], cur: tuple[datetime, datetime]) -> tuple[date, date]:
+def _calendar_range(
+    prev: tuple[datetime, datetime], cur: tuple[datetime, datetime]
+) -> tuple[date, date]:
     """Calendar-day GET range that covers both windows. End is inclusive."""
     start = prev[0].date()
     # cur[1] is exclusive (the start of the next window), so we search up to the day before

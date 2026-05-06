@@ -12,6 +12,7 @@ def sgt(year, month, day, hour=0, minute=0):
 
 # --- current_window ---
 
+
 def test_current_window_midweek():
     # Tuesday 2026-05-05 at 14:00 SGT — current window is the one ending next Wed 8am.
     now = sgt(2026, 5, 5, 14, 0)
@@ -44,6 +45,7 @@ def test_current_window_on_wednesday_after_8am():
 
 # --- previous_window ---
 
+
 def test_previous_window_midweek():
     now = sgt(2026, 5, 5, 14, 0)
     start, end = previous_window(now)
@@ -60,6 +62,7 @@ def test_previous_window_just_after_window_roll():
 
 
 # --- day_number ---
+
 
 def test_day_number_first_minute_is_day_1():
     win = (sgt(2026, 4, 29, 8, 0), sgt(2026, 5, 6, 8, 0))
@@ -82,12 +85,13 @@ def test_day_number_seventh_day():
 
 # --- threshold ---
 
+
 def test_threshold_increments_at_each_8am_boundary():
     win = (sgt(2026, 4, 29, 8, 0), sgt(2026, 5, 6, 8, 0))
-    assert threshold(sgt(2026, 4, 29, 8, 0), win) == 0     # Day 1 starts
-    assert threshold(sgt(2026, 4, 30, 7, 59), win) == 0    # still Day 1
-    assert threshold(sgt(2026, 4, 30, 8, 0), win) == 1     # Day 2 starts
+    assert threshold(sgt(2026, 4, 29, 8, 0), win) == 0  # Day 1 starts
+    assert threshold(sgt(2026, 4, 30, 7, 59), win) == 0  # still Day 1
+    assert threshold(sgt(2026, 4, 30, 8, 0), win) == 1  # Day 2 starts
     assert threshold(sgt(2026, 5, 1, 8, 0), win) == 2
     assert threshold(sgt(2026, 5, 5, 8, 0), win) == 6
     assert threshold(sgt(2026, 5, 6, 7, 59), win) == 6
-    assert threshold(sgt(2026, 5, 6, 8, 0), win) == 7      # window closed
+    assert threshold(sgt(2026, 5, 6, 8, 0), win) == 7  # window closed

@@ -1,12 +1,16 @@
-from datetime import datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 import httpx
-import pytest
 
-from journal.client import Row
 from journal.cache import EntryCache
-from journal.report import build_member_report, MemberReport
+from journal.client import Row
+from journal.report import (
+    FullReport,
+    MemberReport,
+    build_full_report,
+    build_member_report,
+)
 
 SGT = ZoneInfo("Asia/Singapore")
 
@@ -16,16 +20,24 @@ def sgt(year, month, day, hour=0, minute=0):
 
 
 def make_row(entry_id, ts):
-    return Row(submission_ts=ts, entry_id=entry_id,
-               entry_url=f"https://x/entry/{entry_id}/", preview="")
+    return Row(
+        submission_ts=ts,
+        entry_id=entry_id,
+        entry_url=f"https://x/entry/{entry_id}/",
+        preview="",
+    )
 
 
 def test_member_report_done_when_seven_distinct_in_current_window(tmp_path):
     cache = EntryCache.load(tmp_path / "c.json")
-    rows = [make_row(str(i), sgt(2026, 4, 29 + (i // 24), 8 + (i % 24))) for i in range(7)]
+    rows = [
+        make_row(str(i), sgt(2026, 4, 29 + (i // 24), 8 + (i % 24))) for i in range(7)
+    ]
     bodies = {str(i): f"unique body {i}" for i in range(7)}
 
-    fetcher = lambda url: bodies[url.rsplit("/", 2)[-2]]
+    def fetcher(url):
+        return bodies[url.rsplit("/", 2)[-2]]
+
     now = sgt(2026, 5, 6, 7, 0)  # current window ends at Wed 8am
     rep = build_member_report("Jet", rows, now, cache=cache, fetch_body=fetcher)
 
@@ -43,7 +55,10 @@ def test_member_report_behind_when_below_threshold(tmp_path):
         make_row("3", sgt(2026, 5, 1, 9, 0)),
     ]
     bodies = {"1": "a", "2": "b", "3": "c"}
-    fetcher = lambda url: bodies[url.rsplit("/", 2)[-2]]
+
+    def fetcher(url):
+        return bodies[url.rsplit("/", 2)[-2]]
+
     now = sgt(2026, 5, 3, 12, 0)  # Day 5
 
     rep = build_member_report("Jet", rows, now, cache=cache, fetch_body=fetcher)
@@ -60,7 +75,10 @@ def test_member_report_on_track_when_above_threshold(tmp_path):
         make_row("3", sgt(2026, 5, 1, 9, 0)),
     ]
     bodies = {"1": "a", "2": "b", "3": "c"}
-    fetcher = lambda url: bodies[url.rsplit("/", 2)[-2]]
+
+    def fetcher(url):
+        return bodies[url.rsplit("/", 2)[-2]]
+
     now = sgt(2026, 5, 1, 12, 0)  # Day 3
 
     rep = build_member_report("Jet", rows, now, cache=cache, fetch_body=fetcher)
@@ -77,7 +95,10 @@ def test_member_report_dedup_collapses_identical_bodies(tmp_path):
     ]
     # Two of the three share content.
     bodies = {"1": "duplicate", "2": "duplicate", "3": "unique"}
-    fetcher = lambda url: bodies[url.rsplit("/", 2)[-2]]
+
+    def fetcher(url):
+        return bodies[url.rsplit("/", 2)[-2]]
+
     now = sgt(2026, 5, 5, 12, 0)
 
     rep = build_member_report("Jet", rows, now, cache=cache, fetch_body=fetcher)
@@ -134,13 +155,16 @@ def test_member_report_assigns_rows_to_correct_window(tmp_path):
     # now = 2026-05-06 09:00 → current = [05/06 08:00 .. 05/13 08:00),
     #                            previous = [04/29 08:00 .. 05/06 08:00)
     rows = [
-        make_row("p1", sgt(2026, 5, 1, 9, 0)),   # previous window
-        make_row("p2", sgt(2026, 5, 5, 9, 0)),   # previous window
-        make_row("c1", sgt(2026, 5, 6, 9, 0)),   # current window
+        make_row("p1", sgt(2026, 5, 1, 9, 0)),  # previous window
+        make_row("p2", sgt(2026, 5, 5, 9, 0)),  # previous window
+        make_row("c1", sgt(2026, 5, 6, 9, 0)),  # current window
         make_row("oo", sgt(2026, 4, 28, 9, 0)),  # out of scope
     ]
     bodies = {"p1": "a", "p2": "b", "c1": "c", "oo": "d"}
-    fetcher = lambda url: bodies[url.rsplit("/", 2)[-2]]
+
+    def fetcher(url):
+        return bodies[url.rsplit("/", 2)[-2]]
+
     now = sgt(2026, 5, 6, 9, 0)
 
     rep = build_member_report("Jet", rows, now, cache=cache, fetch_body=fetcher)
@@ -149,8 +173,6 @@ def test_member_report_assigns_rows_to_correct_window(tmp_path):
 
 
 def test_member_report_search_failure_marks_member(tmp_path):
-    cache = EntryCache.load(tmp_path / "c.json")
-    now = sgt(2026, 5, 5, 12, 0)
     rep = MemberReport.from_search_failure("Jet", "HTTPError: 502 Bad Gateway")
     assert rep.fetch_failed == "HTTPError: 502 Bad Gateway"
     assert rep.current is None
@@ -165,7 +187,10 @@ def test_member_report_last_submission_uses_latest_row_even_when_deduped(tmp_pat
         make_row("3", sgt(2026, 5, 5, 14, 0)),
     ]
     bodies = {"1": "a", "2": "a", "3": "a"}  # all duplicates
-    fetcher = lambda url: bodies[url.rsplit("/", 2)[-2]]
+
+    def fetcher(url):
+        return bodies[url.rsplit("/", 2)[-2]]
+
     now = sgt(2026, 5, 6, 7, 0)
 
     rep = build_member_report("Jet", rows, now, cache=cache, fetch_body=fetcher)
@@ -176,19 +201,17 @@ def test_member_report_last_submission_uses_latest_row_even_when_deduped(tmp_pat
 
 def test_previous_window_status_only_done_or_behind(tmp_path):
     cache = EntryCache.load(tmp_path / "c.json")
-    rows = [
-        make_row(str(i), sgt(2026, 4, 30, 9 + i, 0)) for i in range(3)
-    ]
+    rows = [make_row(str(i), sgt(2026, 4, 30, 9 + i, 0)) for i in range(3)]
     bodies = {str(i): f"u{i}" for i in range(3)}
-    fetcher = lambda url: bodies[url.rsplit("/", 2)[-2]]
+
+    def fetcher(url):
+        return bodies[url.rsplit("/", 2)[-2]]
+
     now = sgt(2026, 5, 6, 9, 0)  # previous window already closed
 
     rep = build_member_report("Jet", rows, now, cache=cache, fetch_body=fetcher)
     assert rep.previous.status in ("done", "behind")
     assert rep.previous.status == "behind"  # 3 < 7
-
-
-from journal.report import build_full_report, FullReport
 
 
 def test_full_report_aggregates_all_members(tmp_path):
@@ -270,6 +293,5 @@ def test_full_report_uses_combined_date_range_for_search(tmp_path):
 
     # Range must cover both windows: previous starts on 2026-04-22 (Wed),
     # current ends on 2026-05-05 (day before current window boundary at 08:00 on May 6).
-    from datetime import date
     assert captured["start"] == date(2026, 4, 22)
     assert captured["end"] == date(2026, 5, 5)

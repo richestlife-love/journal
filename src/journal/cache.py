@@ -16,7 +16,7 @@ class EntryCache:
             if not isinstance(entries, dict):
                 return cls(path, {})
             return cls(path, dict(entries))
-        except (FileNotFoundError, json.JSONDecodeError):
+        except FileNotFoundError, json.JSONDecodeError:
             return cls(path, {})
 
     def get(self, entry_id: str) -> str | None:

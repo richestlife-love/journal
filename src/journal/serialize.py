@@ -3,8 +3,8 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from .report import FullReport, MemberReport, WindowStats
-from .window import day_number, threshold
+from journal.report import FullReport, MemberReport, WindowStats
+from journal.window import day_number, threshold
 
 
 def _iso(dt: datetime | None) -> str | None:
@@ -44,7 +44,8 @@ def to_payload(report: FullReport) -> dict:
                 "start": cur_start.isoformat(),
                 "end": cur_end.isoformat(),
                 "day": day_number(report.refreshed_at, report.current_window)
-                       if cur_start <= report.refreshed_at < cur_end else None,
+                if cur_start <= report.refreshed_at < cur_end
+                else None,
                 "threshold": threshold(report.refreshed_at, report.current_window),
             },
             "previous": {

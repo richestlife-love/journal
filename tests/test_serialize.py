@@ -1,6 +1,5 @@
 import json
 from datetime import datetime
-from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from journal.report import (
@@ -18,7 +17,9 @@ def sgt(y, m, d, h=0, mi=0):
 
 
 def _stats(count, status, last_ts=None, dropped=0):
-    return WindowStats(count=count, status=status, last_submission=last_ts, dropped_rows=dropped)
+    return WindowStats(
+        count=count, status=status, last_submission=last_ts, dropped_rows=dropped
+    )
 
 
 def _full_report():
@@ -100,7 +101,10 @@ def test_write_site_writes_data_json_and_copies_static(tmp_path):
     assert "__DATA__" not in html
     # Embedded JSON parses back to the payload.
     import re
-    m = re.search(r'<script type="application/json" id="data">(.*?)</script>', html, re.S)
+
+    m = re.search(
+        r'<script type="application/json" id="data">(.*?)</script>', html, re.S
+    )
     assert m is not None
     assert json.loads(m.group(1)) == payload
 

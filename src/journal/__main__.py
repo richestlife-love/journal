@@ -6,10 +6,10 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
-from .cache import EntryCache
-from .client import fetch_member_list, fetch_search, fetch_entry_body
-from .report import build_full_report
-from .serialize import to_payload, write_site
+from journal.cache import EntryCache
+from journal.client import fetch_member_list, fetch_search, fetch_entry_body
+from journal.report import build_full_report
+from journal.serialize import to_payload, write_site
 
 SGT = ZoneInfo("Asia/Singapore")
 
@@ -56,7 +56,9 @@ def main(argv: list[str] | None = None) -> int:
 
     args = p.parse_args(argv)
     if args.cmd == "build":
-        return build(cache_path=args.cache, out_dir=args.out, static_dir=here / "static")
+        return build(
+            cache_path=args.cache, out_dir=args.out, static_dir=here / "static"
+        )
     return 2
 
 

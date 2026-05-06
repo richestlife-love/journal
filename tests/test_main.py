@@ -1,5 +1,4 @@
 import json
-import sys
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -30,14 +29,25 @@ def test_build_end_to_end_with_mocked_http(tmp_path):
     def handler(request: httpx.Request) -> httpx.Response:
         url = str(request.url)
         if "/entry/" in url:
-            return httpx.Response(200, text=(FIXTURES / "entry-page-158567.html").read_text())
+            return httpx.Response(
+                200, text=(FIXTURES / "entry-page-158567.html").read_text()
+            )
         if "filter_11" in url:
-            return httpx.Response(200, text=(FIXTURES / "search-page-jet.html").read_text())
-        return httpx.Response(200, text=(FIXTURES / "search-page-empty.html").read_text())
+            return httpx.Response(
+                200, text=(FIXTURES / "search-page-jet.html").read_text()
+            )
+        return httpx.Response(
+            200, text=(FIXTURES / "search-page-empty.html").read_text()
+        )
 
     fixed_now = datetime(2026, 5, 6, 7, 0, tzinfo=SGT)
-    with patch("journal.__main__._http_client", return_value=httpx.Client(transport=httpx.MockTransport(handler))), \
-         patch("journal.__main__._now", return_value=fixed_now):
+    with (
+        patch(
+            "journal.__main__._http_client",
+            return_value=httpx.Client(transport=httpx.MockTransport(handler)),
+        ),
+        patch("journal.__main__._now", return_value=fixed_now),
+    ):
         rc = build(cache_path=cache_path, out_dir=out, static_dir=static)
 
     assert rc == 0
