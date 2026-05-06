@@ -67,7 +67,7 @@ def write_site(payload: dict, *, static_dir: Path, out_dir: Path) -> None:
 
     (out_dir / "data.json").write_text(json.dumps(payload, indent=2))
 
-    for name in ("app.js", "style.css"):
+    for name in ("app.js", "style.css", "favicon.svg"):
         src = static_dir / name
         if src.exists():
             shutil.copy(src, out_dir / name)
