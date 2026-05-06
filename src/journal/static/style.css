@@ -1,12 +1,13 @@
 :root {
-  --paper: #f3ecdb;
+  --paper: #fcfaf3;
   --ink: #1c1611;
   --ink-soft: #4a3f31;
   --ink-faint: #8b7d6a;
   --rule: #c9bfa6;
   --rule-soft: #d9d0b8;
-  --accent: #8a4623;
-  --brown-light: #a87c4f;
+  --accent: #daa520;
+  --oxblood: #8a4623;
+  --light-brown: #8c6537;
 
   --done:     #355e3b;
   --on-track: #a07020;
@@ -137,16 +138,16 @@ body {
 }
 
 .action.primary {
-  background: var(--accent);
+  background: var(--light-brown);
   color: var(--paper);
-  border-color: var(--accent);
+  border-color: var(--light-brown);
 }
 
 .action:hover,
 .action:focus-visible {
-  background: var(--brown-light);
+  background: var(--oxblood);
   color: var(--paper);
-  border-color: var(--brown-light);
+  border-color: var(--oxblood);
   outline: none;
 }
 
@@ -264,7 +265,7 @@ body {
 .pip.today {
   background: var(--accent);
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(138,70,35,0.18);
+  box-shadow: 0 0 0 3px rgba(218,165,32,0.28);
 }
 
 .progress-meta {

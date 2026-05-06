@@ -22,7 +22,7 @@
 
   function fmtRefreshed(iso) {
     const d = new Date(iso);
-    return `Refreshed ${d.toLocaleString("en-SG", {
+    return `Refreshed on ${d.toLocaleString("en-SG", {
       timeZone: "Asia/Singapore", year: "numeric", month: "2-digit",
       day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false,
     })} SGT`;
