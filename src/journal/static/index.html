@@ -4,40 +4,68 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>RichestLife SG — Journal Submission Status</title>
+  <title>The Journal — Richestlife SG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=JetBrains+Mono:wght@400;500&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>RichestLife SG — Journal Submission Status</h1>
-    <p class="meta">
-      <span id="refreshed"></span>
-    </p>
-  </header>
+  <div class="paper">
+    <header class="masthead">
+      <div class="masthead-top">
+        <p class="brand">
+          Richestlife <span class="bullet">·</span> SG
+        </p>
+        <p class="dateline" id="refreshed">—</p>
+      </div>
 
-  <main>
-    <section id="current">
-      <h2>Current week</h2>
-      <p class="window-meta"></p>
-      <table>
-        <thead>
-          <tr><th>Name</th><th>Submissions</th><th>Status</th><th>Last submission</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </section>
+      <h1 class="display">Daily Learning <em>Journal</em></h1>
 
-    <section id="previous">
-      <h2>Last completed week</h2>
-      <p class="window-meta"></p>
-      <table>
-        <thead>
-          <tr><th>Name</th><th>Submissions</th><th>Status</th><th>Last submission</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </section>
-  </main>
+      <nav class="actions" aria-label="Quick actions">
+        <a class="action primary"
+           href="https://writexperience.richestlife.com/sg-superlifecode-experience/"
+           target="_blank" rel="noopener">
+          Submit experience <span class="arrow" aria-hidden="true">↗</span>
+        </a>
+        <a class="action"
+           href="https://writexperience.richestlife.com/sg-check-experience/"
+           target="_blank" rel="noopener">
+          Check experience <span class="arrow" aria-hidden="true">↗</span>
+        </a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="ledger" id="weeks" aria-labelledby="week-head">
+        <header class="section-head">
+          <button class="nav-arrow prev" type="button" aria-label="Previous week">←</button>
+          <div class="section-head-text">
+            <h2 id="week-head">This Week</h2>
+            <p class="window-meta">—</p>
+          </div>
+          <button class="nav-arrow next" type="button" aria-label="Next week">→</button>
+        </header>
+
+        <div class="progress" id="progress">
+          <div class="pips" aria-hidden="true"></div>
+          <p class="progress-meta">—</p>
+        </div>
+
+        <div class="members-table">
+          <div class="members-head" aria-hidden="true">
+            <span class="num"></span>
+            <span class="name">Name</span>
+            <span class="count">Count</span>
+            <span class="status">Status</span>
+            <span class="last">Last submitted</span>
+          </div>
+          <ol class="members" data-members></ol>
+        </div>
+      </section>
+    </main>
+
+  </div>
 
   <script type="application/json" id="data">__DATA__</script>
   <script src="app.js"></script>
