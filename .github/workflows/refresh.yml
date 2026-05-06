@@ -1,0 +1,79 @@
+name: Refresh
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: refresh
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      - name: Checkout cache branch (or initialize)
+        run: |
+          set -e
+          mkdir -p .cache
+          if git ls-remote --exit-code --heads origin cache >/dev/null 2>&1; then
+            git -C .cache init -q
+            git -C .cache remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+            git -C .cache fetch --depth 1 origin cache
+            git -C .cache checkout cache
+          else
+            echo '{"version": 1, "entries": {}}' > .cache/cache.json
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Sync deps
+        run: uv sync
+
+      - name: Build site
+        run: uv run python -m journal build --cache .cache/cache.json --out site
+
+      - name: Push updated cache (if changed)
+        run: |
+          set -e
+          cd .cache
+          if [ ! -d .git ]; then
+            git init -q
+            git checkout --orphan cache
+            git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          fi
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add cache.json
+          if git diff --quiet --cached; then
+            echo "No cache changes."
+            exit 0
+          fi
+          git commit -m "chore: refresh cache"
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:cache
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
