@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>RichestLife SG — Journal Submission Status</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-mode="dedup">
+  <header>
+    <h1>RichestLife SG — Journal Submission Status</h1>
+    <p class="meta">
+      <span id="refreshed"></span>
+      <span class="sep">•</span>
+      Dedup:
+      <a href="#" id="toggle-on" class="toggle active">on</a>
+      <a href="#" id="toggle-off" class="toggle">off</a>
+    </p>
+  </header>
+
+  <main>
+    <section id="current">
+      <h2>Current week</h2>
+      <p class="window-meta"></p>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Submissions</th><th>Status</th><th>Last submission</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section id="previous">
+      <h2>Last completed week</h2>
+      <p class="window-meta"></p>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Submissions</th><th>Status</th><th>Last submission</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script type="application/json" id="data">__DATA__</script>
+  <script src="app.js"></script>
+</body>
+</html>
