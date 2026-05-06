@@ -13,3 +13,9 @@ wheels/
 
 # Git worktrees
 .worktrees/
+
+# Build output
+site/
+
+# Local cache (CI uses a dedicated branch)
+.cache/
