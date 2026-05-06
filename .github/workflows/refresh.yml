@@ -2,7 +2,7 @@ name: Refresh
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 concurrency:
@@ -49,6 +49,7 @@ jobs:
         run: uv run python -m journal build --cache .cache/cache.json --out site
 
       - name: Push updated cache (if changed)
+        id: cache_push
         run: |
           set -e
           cd .cache
@@ -62,18 +63,22 @@ jobs:
           git add cache.json
           if git diff --quiet --cached; then
             echo "No cache changes."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git commit -m "chore: refresh cache"
           git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:cache
+          echo "changed=true" >> "$GITHUB_OUTPUT"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Pages artifact
+        if: steps.cache_push.outputs.changed == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: site
 
       - name: Deploy to GitHub Pages
         id: deploy
+        if: steps.cache_push.outputs.changed == 'true'
         uses: actions/deploy-pages@v4
