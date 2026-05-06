@@ -161,19 +161,19 @@ A single static HTML page with two stacked tables.
 GitHub Actions (cron + manual, concurrency: refresh)
   ├── checkout main → working dir
   ├── checkout cache branch → .cache/
-  └── uv run python -m journal build --cache .cache/cache.json
-       ├── load cache.json (entry_id → hash)
-       ├── fetch SG member list (filter_11 options)
-       ├── for each member:
-       │     ├── fetch search results for [last completed week .. current week]
-       │     ├── parse rows; assign each to a window
-       │     └── for each in-window row:
-       │           ├── if entry_id in cache → reuse hash
-       │           └── else → fetch entry page, hash body, write to cache
-       ├── dedup per (member, window) by body hash
-       ├── compute count, last submission, status (per dedup mode)
-       ├── save cache.json
-       └── write site/data.json + copy static/{index.html,app.js,style.css} → site/
+  ├── uv run python -m journal build --cache .cache/cache.json
+  │    ├── load cache.json (entry_id → hash)
+  │    ├── fetch SG member list (filter_11 options)
+  │    ├── for each member:
+  │    │     ├── fetch search results for [last completed week .. current week]
+  │    │     ├── parse rows; assign each to a window
+  │    │     └── for each in-window row:
+  │    │           ├── if entry_id in cache → reuse hash
+  │    │           └── else → fetch entry page, hash body, write to cache
+  │    ├── dedup per (member, window) by body hash
+  │    ├── compute count, last submission, status (for both dedup modes)
+  │    ├── save cache.json
+  │    └── write site/data.json + copy static/{index.html,app.js,style.css} → site/
   ├── commit + push cache.json to cache branch (if changed)
   └── actions/deploy-pages → GitHub Pages
 ```
@@ -187,7 +187,7 @@ GitHub Actions (cron + manual, concurrency: refresh)
 ```
 src/journal/
   __init__.py
-  __main__.py          # CLI: `uv run python -m journal build [--out site]`
+  __main__.py          # CLI: `uv run python -m journal build [--cache PATH] [--out DIR] [--static DIR]`
   client.py            # httpx fetch + selectolax parse for search page and entry page
   cache.py             # entry_id → body-hash JSON cache (monotonic, immutable entries assumed)
   window.py            # SGT 8am-Wed window math, day numbering, threshold
@@ -220,10 +220,57 @@ site/                   # build output, gitignored
 - `cache.py` — `EntryCache.load(path) -> EntryCache`, `get(entry_id) -> str | None`, `put(entry_id, hash_) -> None`, `save() -> None`. JSON file backed. No invalidation. Knows nothing about windows or members.
 - `window.py` — time-only logic: `current_window(now) -> (start, end)`, `previous_window(now) -> (start, end)`, `day_number(t, window) -> int (1..7)`, `threshold(t, window) -> int (0..7)`. All datetimes are SGT-aware (`zoneinfo("Asia/Singapore")`).
 - `dedup.py` — `normalize_body(html_or_text: str) -> str`, `body_hash(text: str) -> str`, `dedup_count(hashes: list[str]) -> int`. Pure functions; takes already-fetched-or-cached hashes.
-- `report.py` — composes the above to produce, per member per window, both deduped and raw counts, last-submission timestamp, and status. Calls `cache.get` first; only invokes `client.fetch_entry_body` on cache miss. Returns plain Python data (no formatting).
+- `report.py` — composes the above to produce, per member per window, both deduped and raw counts, last-submission timestamp, and status. Calls `cache.get` first; only invokes `client.fetch_entry_body` on cache miss. Tracks per-row entry-fetch failures (count of dropped rows + their entry IDs) so `serialize.py` can render the row-level `⚠` indicator. Tracks per-member search failure separately so the member-level `⚠ Fetch failed` status can be emitted. Returns plain Python data (no formatting).
+- **`last_submission` semantics**: the most recent submission timestamp among *raw* rows in the window (whichever rows survived entry-fetch). It is independent of dedup mode — toggling dedup does not change this field.
 - `serialize.py` — `to_payload(report, now) -> dict` building the JSON payload (windows, refresh timestamp, day-N + threshold, per-member rows for both modes), and `write_site(payload, static_dir, out_dir)` which writes `data.json` and copies `index.html`, `app.js`, `style.css`. **`out_dir` is wiped and recreated at the start of each write**, so deleted static assets don't linger. All human-facing formatting (relative times, "Day N of 7", deadline countdown) is done in JS, not here — this module deals only in machine-readable values (ISO timestamps, integers).
 - `static/app.js` — runs on page load. Reads the JSON from `<script type="application/json" id="data">`, computes display strings (relative time, countdown), builds two tables, wires the dedup toggle to re-render in the alternate mode. Self-contained; no module loader.
 - `__main__.py` — wires the pieces, handles CLI flags (`--cache <path>`, `--out <dir>`, `--static <dir>`), exits non-zero on catastrophic failures (e.g. cannot reach the platform at all).
+
+## `data.json` schema
+
+```json
+{
+  "version": 1,
+  "refreshed_at": "2026-05-06T14:00:00+08:00",
+  "windows": {
+    "current": {
+      "start": "2026-04-29T08:00:00+08:00",
+      "end":   "2026-05-06T08:00:00+08:00",
+      "day":       3,
+      "threshold": 2
+    },
+    "previous": {
+      "start": "2026-04-22T08:00:00+08:00",
+      "end":   "2026-04-29T08:00:00+08:00"
+    }
+  },
+  "members": [
+    {
+      "name": "Jet",
+      "current": {
+        "raw":    { "count": 7, "status": "done",    "last_submission": "2026-05-06T07:43:00+08:00", "dropped_rows": 0 },
+        "dedup":  { "count": 7, "status": "done",    "last_submission": "2026-05-06T07:43:00+08:00", "dropped_rows": 0 }
+      },
+      "previous": {
+        "raw":    { "count": 8, "status": "done",    "last_submission": "2026-04-28T22:10:00+08:00", "dropped_rows": 0 },
+        "dedup":  { "count": 7, "status": "done",    "last_submission": "2026-04-28T22:10:00+08:00", "dropped_rows": 0 }
+      }
+    },
+    {
+      "name": "Aillyn",
+      "fetch_failed": "HTTPError: 502 Bad Gateway",
+      "current":  null,
+      "previous": null
+    }
+  ]
+}
+```
+
+- `status` values: `"done" | "on_track" | "behind"`. UI maps these to `✓ Done` / `→ On track` / `✗ Behind`.
+- `previous.day` / `previous.threshold` are omitted because the window has closed (only `done` / `behind` apply).
+- `fetch_failed`, when present (string error message), means the *search-page* fetch failed for that member; `current` and `previous` are `null` and the JS renders `?/7` with `⚠ Fetch failed`.
+- `dropped_rows` is the count of in-window rows whose entry-page fetch failed; the JS shows the `⚠` indicator next to the count when this is > 0. The list of failed entry IDs is logged but not embedded.
+- `last_submission` is `null` when there were no surviving in-window rows.
 
 ## Error handling
 
@@ -241,7 +288,7 @@ Failures are graded by what failed:
 - **Window math tests** cover boundary cases: exactly 08:00 SGT on Wed (window roll), DST irrelevant for Singapore but verified, day-N transitions at each 08:00.
 - **Dedup tests** cover: identical text, identical text with different whitespace, identical text with different HTML wrapping, two truly distinct journals.
 - **Cache tests** cover: hit returns stored hash without invoking fetcher, miss invokes fetcher and persists, save+reload round-trips, malformed/missing file degrades to empty cache.
-- **Report tests** verify status transitions across all (count, threshold) cells.
+- **Report tests** verify status transitions across all (count, threshold) cells, including the member-level `⚠ Fetch failed` path (search-page failure) and the row-level partial-failure path (some entry fetches succeed, others fail; status uses surviving rows; failed entry IDs are surfaced).
 - **Serialize tests** snapshot the `data.json` payload shape (keys, types, value ranges) given a fixed `report` and `now`. Format-of-display strings live in JS, so they're not exercised here.
 - **JS rendering**: not exercised by the Python test suite in v1. Verified by a manual smoke test (`python -m http.server` over `site/` after a build, open in a browser, confirm both tables render and the toggle flips counts/sorts). A headless-browser test can be added later if regressions appear.
 - No live network in tests. The HTTP layer is mocked or the parser is fed fixtures directly.
