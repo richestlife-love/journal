@@ -23,7 +23,12 @@
     if (diff < 60) return "just now";
     if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
     if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
-    if (diff < 86400 * 2) return "yesterday";
+    if (diff < 86400 * 2) {
+      const t = new Date(iso).toLocaleTimeString("en-SG", {
+        timeZone: "Asia/Singapore", hour: "2-digit", minute: "2-digit", hour12: false,
+      });
+      return `yesterday at ${t}`;
+    }
     return `${Math.floor(diff / 86400)} days ago`;
   }
 
@@ -45,7 +50,7 @@
   function memberRow(m, mode, isCurrent) {
     const tr = document.createElement("tr");
     if (m.fetch_failed) {
-      tr.innerHTML = `<td>${m.name}</td><td class="count">?/7</td>` +
+      tr.innerHTML = `<td>${escapeHtml(m.name)}</td><td class="count">?/7</td>` +
         `<td class="status-failed" title="${escapeHtml(m.fetch_failed)}">${STATUS_LABEL.failed}</td><td>—</td>`;
       return { tr, statusKey: "failed", count: -1 };
     }
@@ -56,7 +61,7 @@
     const warn = stats.dropped_rows > 0
       ? `<span class="warn" title="${stats.dropped_rows} entry fetch(es) failed; count is a lower bound">⚠</span>`
       : "";
-    tr.innerHTML = `<td>${m.name}</td><td class="count">${count}/7${warn}</td>` +
+    tr.innerHTML = `<td>${escapeHtml(m.name)}</td><td class="count">${count}/7${warn}</td>` +
       `<td class="status-${status}">${STATUS_LABEL[status]}</td>` +
       `<td>${fmtRelative(stats.last_submission, Date.now())}</td>`;
     return { tr, statusKey: status, count };

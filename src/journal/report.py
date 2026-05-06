@@ -1,10 +1,10 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, date, timedelta
 from typing import Callable, Literal
 
 from .cache import EntryCache
 from .client import Row
-from .dedup import body_hash, dedup_count, normalize_body
+from .dedup import body_hash, dedup_count
 from .window import current_window, previous_window, threshold
 
 Status = Literal["done", "on_track", "behind"]
@@ -108,7 +108,7 @@ def build_member_report(
             if r in in_prev:
                 dropped_prev += 1
             continue
-        h = body_hash(normalize_body(body))
+        h = body_hash(body)
         cache.put(r.entry_id, h)
         hashes[r.entry_id] = h
 

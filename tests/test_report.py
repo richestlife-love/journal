@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -7,7 +6,7 @@ import pytest
 
 from journal.client import Row
 from journal.cache import EntryCache
-from journal.report import build_member_report, MemberReport, ModeStats
+from journal.report import build_member_report, MemberReport
 
 SGT = ZoneInfo("Asia/Singapore")
 
