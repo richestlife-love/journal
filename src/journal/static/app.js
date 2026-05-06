@@ -92,7 +92,7 @@
         `<span class="count"><span class="number">?/7</span></span>` +
         `<span class="status" data-tip="${escapeHtml(m.fetch_failed)}">${STATUS_LABEL.failed} †</span>` +
         `<span class="last">—</span>`;
-      return { li, statusKey: "failed", count: -1, m };
+      return { li, statusKey: "failed", count: -1, lastMs: Infinity, m };
     }
 
     const stats = isCurrent ? m.current : m.previous;
@@ -110,18 +110,15 @@
       `<span class="status">${STATUS_LABEL[status]}${warn}</span>` +
       `<span class="last">${fmtRelative(last_submission, now)}</span>`;
 
-    return { li, statusKey: status, count, m };
+    const lastMs = last_submission ? new Date(last_submission).getTime() : Infinity;
+    return { li, statusKey: status, count, lastMs, m };
   }
 
   function sortEntries(rows) {
     return rows.sort((a, b) => {
-      const r = STATUS_RANK[b.statusKey] - STATUS_RANK[a.statusKey];
-      if (r !== 0) return r;
-      if (a.statusKey !== "done") {
-        const c = b.count - a.count;
-        if (c !== 0) return c;
-      }
-      return b.m.name.localeCompare(a.m.name);
+      const c = b.count - a.count;
+      if (c !== 0) return c;
+      return a.lastMs - b.lastMs;
     });
   }
 
