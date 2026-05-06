@@ -56,10 +56,13 @@
 
   function fmtCountdown(endIso, now) {
     const ms = new Date(endIso).getTime() - now;
-    if (ms <= 0) return "deadline passed";
-    const h = Math.floor(ms / 3_600_000);
+    if (ms <= 0) return "Ended";
+    const m = Math.floor(ms / 60_000);
+    const h = Math.floor(m / 60);
     const d = Math.floor(h / 24);
-    return d > 0 ? `${d}d ${h % 24}h to deadline` : `${h}h to deadline`;
+    if (d > 0) return `Ends in ${d}d ${h % 24}h`;
+    if (h > 0) return `Ends in ${h}h ${m % 60}m`;
+    return `Ends in ${m}m`;
   }
 
   function escapeHtml(s) {
@@ -147,11 +150,14 @@
       else if (i === day) pip.classList.add("today");
       pipsEl.appendChild(pip);
     }
+    pipsEl.setAttribute(
+      "aria-label",
+      isCurrent && dayRaw != null ? `Day ${dayRaw} of ${TOTAL_DAYS}` : `${TOTAL_DAYS} of ${TOTAL_DAYS} days`,
+    );
     if (!isCurrent) {
       progressMetaEl.textContent = "Week complete";
     } else {
-      const dayPart = dayRaw == null ? "Window closed" : `Day ${dayRaw} of ${TOTAL_DAYS}`;
-      progressMetaEl.textContent = `${dayPart} · ${fmtCountdown(win.end, now)}`;
+      progressMetaEl.textContent = dayRaw == null ? "Window closed" : fmtCountdown(win.end, now);
     }
   }
 
