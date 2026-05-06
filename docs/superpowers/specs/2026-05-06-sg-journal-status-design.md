@@ -91,7 +91,7 @@ threshold(T) = number of fully-completed days from window-start to T
 
 ## Status
 
-`count` is the active-mode count (deduped count when the dedup toggle is on, raw row count when off). Status is computed independently for each mode so toggling the UI re-evaluates statuses without re-rendering.
+`count` is the active-mode count (deduped count when the dedup toggle is on, raw row count when off). The build computes count, last-submission, and status for **both** modes per member per window, ships them in `data.json`, and the JS picks the matching set when it (re-)renders.
 
 For the **current in-progress week** (with `threshold` as defined above):
 
@@ -110,7 +110,7 @@ For the **last completed week**, the window has closed so only two states apply:
 | `count >= 7` | **✓ Done** |
 | `count < 7` | **✗ Behind** |
 
-A 4th display-only state, **⚠ Fetch failed**, is shown for any member whose data could not be retrieved this run (see Error handling). It is not produced by the rules above; rows in this state render `?/7` and are sorted to the very top.
+A 4th display-only state, **⚠ Fetch failed**, is shown when a member's *search-page* fetch fails entirely (we couldn't even list their submissions). It is not produced by the rules above; the row renders `?/7` and is sorted to the very top. Row-level entry-fetch failures are handled differently — see Error handling.
 
 ## UI layout
 
@@ -147,7 +147,7 @@ A single static HTML page with two stacked tables.
 
 **Sort order (each table)**: `⚠ Fetch failed` first (alphabetical), then `✗ Behind` by ascending count then alphabetical, then `→ On track` by ascending count, then `✓ Done` alphabetical. Members with partial entry-fetch failures (the row-level `⚠` indicator) are not promoted by the sort — they sort by their surviving count under the normal status bucket.
 
-**Rendering model**: the page is rendered entirely in the browser. The Python build emits a static `index.html` skeleton (header chrome, two empty `<section>`s for the two tables, the toggle link, and a `<script type="application/json" id="data">…</script>` tag carrying both deduped and raw stats). On load, ~30 lines of vanilla JS parse the JSON and populate both tables. No framework, no Jinja2.
+**Rendering model**: the page is rendered entirely in the browser. The Python build emits a static `index.html` skeleton (header chrome, two empty `<section>`s for the two tables, the toggle link, and a `<script type="application/json" id="data">…</script>` tag carrying both deduped and raw stats). On load, ~30 lines of vanilla JS parse the JSON and populate both tables. No framework.
 
 **Dedup toggle**: clicking `[on]/[off]` re-runs the same render function with the alternate count field. State held in a `data-mode` attribute on `<body>` for CSS hooks; default is `dedup`.
 
@@ -221,7 +221,7 @@ site/                   # build output, gitignored
 - `window.py` — time-only logic: `current_window(now) -> (start, end)`, `previous_window(now) -> (start, end)`, `day_number(t, window) -> int (1..7)`, `threshold(t, window) -> int (0..7)`. All datetimes are SGT-aware (`zoneinfo("Asia/Singapore")`).
 - `dedup.py` — `normalize_body(html_or_text: str) -> str`, `body_hash(text: str) -> str`, `dedup_count(hashes: list[str]) -> int`. Pure functions; takes already-fetched-or-cached hashes.
 - `report.py` — composes the above to produce, per member per window, both deduped and raw counts, last-submission timestamp, and status. Calls `cache.get` first; only invokes `client.fetch_entry_body` on cache miss. Returns plain Python data (no formatting).
-- `serialize.py` — `to_payload(report, now) -> dict` building the JSON payload (windows, refresh timestamp, day-N + threshold, per-member rows for both modes), and `write_site(payload, static_dir, out_dir)` which writes `data.json` and copies `index.html`, `app.js`, `style.css`. All human-facing formatting (relative times, "Day N of 7", deadline countdown) is done in JS, not here — this module deals only in machine-readable values (ISO timestamps, integers).
+- `serialize.py` — `to_payload(report, now) -> dict` building the JSON payload (windows, refresh timestamp, day-N + threshold, per-member rows for both modes), and `write_site(payload, static_dir, out_dir)` which writes `data.json` and copies `index.html`, `app.js`, `style.css`. **`out_dir` is wiped and recreated at the start of each write**, so deleted static assets don't linger. All human-facing formatting (relative times, "Day N of 7", deadline countdown) is done in JS, not here — this module deals only in machine-readable values (ISO timestamps, integers).
 - `static/app.js` — runs on page load. Reads the JSON from `<script type="application/json" id="data">`, computes display strings (relative time, countdown), builds two tables, wires the dedup toggle to re-render in the alternate mode. Self-contained; no module loader.
 - `__main__.py` — wires the pieces, handles CLI flags (`--cache <path>`, `--out <dir>`, `--static <dir>`), exits non-zero on catastrophic failures (e.g. cannot reach the platform at all).
 
