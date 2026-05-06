@@ -30,10 +30,8 @@ def test_member_report_done_when_seven_distinct_in_current_window(tmp_path):
     rep = build_member_report("Jet", rows, now, cache=cache, fetch_body=fetcher)
 
     assert rep.fetch_failed is None
-    assert rep.current.dedup.count == 7
-    assert rep.current.dedup.status == "done"
-    assert rep.current.raw.count == 7
-    assert rep.current.raw.status == "done"
+    assert rep.current.count == 7
+    assert rep.current.status == "done"
 
 
 def test_member_report_behind_when_below_threshold(tmp_path):
@@ -49,8 +47,8 @@ def test_member_report_behind_when_below_threshold(tmp_path):
     now = sgt(2026, 5, 3, 12, 0)  # Day 5
 
     rep = build_member_report("Jet", rows, now, cache=cache, fetch_body=fetcher)
-    assert rep.current.dedup.count == 3
-    assert rep.current.dedup.status == "behind"
+    assert rep.current.count == 3
+    assert rep.current.status == "behind"
 
 
 def test_member_report_on_track_when_above_threshold(tmp_path):
@@ -66,8 +64,8 @@ def test_member_report_on_track_when_above_threshold(tmp_path):
     now = sgt(2026, 5, 1, 12, 0)  # Day 3
 
     rep = build_member_report("Jet", rows, now, cache=cache, fetch_body=fetcher)
-    assert rep.current.dedup.count == 3
-    assert rep.current.dedup.status == "on_track"
+    assert rep.current.count == 3
+    assert rep.current.status == "on_track"
 
 
 def test_member_report_dedup_collapses_identical_bodies(tmp_path):
@@ -83,8 +81,7 @@ def test_member_report_dedup_collapses_identical_bodies(tmp_path):
     now = sgt(2026, 5, 5, 12, 0)
 
     rep = build_member_report("Jet", rows, now, cache=cache, fetch_body=fetcher)
-    assert rep.current.raw.count == 3
-    assert rep.current.dedup.count == 2
+    assert rep.current.count == 2
 
 
 def test_member_report_uses_cache_and_skips_fetch_for_known_entries(tmp_path):
@@ -127,8 +124,8 @@ def test_member_report_partial_entry_fetch_failure_drops_row(tmp_path):
     rep = build_member_report("Jet", rows, now, cache=cache, fetch_body=fetcher)
 
     assert rep.fetch_failed is None
-    assert rep.current.dedup.dropped_rows == 1
-    assert rep.current.dedup.count == 2  # 2 surviving distinct rows
+    assert rep.current.dropped_rows == 1
+    assert rep.current.count == 2  # 2 surviving distinct rows
     assert cache.get("2") is None  # failed entry NOT cached
 
 
@@ -147,8 +144,8 @@ def test_member_report_assigns_rows_to_correct_window(tmp_path):
     now = sgt(2026, 5, 6, 9, 0)
 
     rep = build_member_report("Jet", rows, now, cache=cache, fetch_body=fetcher)
-    assert rep.previous.raw.count == 2
-    assert rep.current.raw.count == 1
+    assert rep.previous.count == 2
+    assert rep.current.count == 1
 
 
 def test_member_report_search_failure_marks_member(tmp_path):
@@ -160,7 +157,7 @@ def test_member_report_search_failure_marks_member(tmp_path):
     assert rep.previous is None
 
 
-def test_member_report_last_submission_uses_latest_raw_row(tmp_path):
+def test_member_report_last_submission_uses_latest_row_even_when_deduped(tmp_path):
     cache = EntryCache.load(tmp_path / "c.json")
     rows = [
         make_row("1", sgt(2026, 5, 5, 9, 0)),
@@ -172,9 +169,9 @@ def test_member_report_last_submission_uses_latest_raw_row(tmp_path):
     now = sgt(2026, 5, 6, 7, 0)
 
     rep = build_member_report("Jet", rows, now, cache=cache, fetch_body=fetcher)
-    # Latest raw timestamp wins, regardless of dedup.
-    assert rep.current.raw.last_submission == sgt(2026, 5, 5, 18, 0)
-    assert rep.current.dedup.last_submission == sgt(2026, 5, 5, 18, 0)
+    # Latest underlying row timestamp wins, even though dedup count is 1.
+    assert rep.current.count == 1
+    assert rep.current.last_submission == sgt(2026, 5, 5, 18, 0)
 
 
 def test_previous_window_status_only_done_or_behind(tmp_path):
@@ -187,8 +184,8 @@ def test_previous_window_status_only_done_or_behind(tmp_path):
     now = sgt(2026, 5, 6, 9, 0)  # previous window already closed
 
     rep = build_member_report("Jet", rows, now, cache=cache, fetch_body=fetcher)
-    assert rep.previous.dedup.status in ("done", "behind")
-    assert rep.previous.dedup.status == "behind"  # 3 < 7
+    assert rep.previous.status in ("done", "behind")
+    assert rep.previous.status == "behind"  # 3 < 7
 
 
 from journal.report import build_full_report, FullReport

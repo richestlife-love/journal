@@ -22,14 +22,6 @@ body {
 header { border-bottom: 1px solid var(--border); padding-bottom: 1rem; }
 h1 { margin: 0 0 0.5rem; font-size: 1.5rem; }
 .meta { color: var(--muted); font-size: 0.9rem; margin: 0; }
-.meta .sep { margin: 0 0.5rem; }
-
-.toggle {
-  text-decoration: none;
-  color: var(--muted);
-  padding: 0 0.25rem;
-}
-.toggle.active { color: var(--fg); font-weight: 600; }
 
 main section { margin-top: 2rem; }
 h2 { margin-bottom: 0.25rem; font-size: 1.1rem; }

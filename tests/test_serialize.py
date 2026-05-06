@@ -6,8 +6,7 @@ from zoneinfo import ZoneInfo
 from journal.report import (
     FullReport,
     MemberReport,
-    ModeStats,
-    WindowReport,
+    WindowStats,
 )
 from journal.serialize import to_payload, write_site
 
@@ -19,18 +18,12 @@ def sgt(y, m, d, h=0, mi=0):
 
 
 def _stats(count, status, last_ts=None, dropped=0):
-    return ModeStats(count=count, status=status, last_submission=last_ts, dropped_rows=dropped)
-
-
-def _wr(raw_count, raw_status, dedup_count, dedup_status):
-    return WindowReport(
-        raw=_stats(raw_count, raw_status, last_ts=sgt(2026, 5, 5, 12)),
-        dedup=_stats(dedup_count, dedup_status, last_ts=sgt(2026, 5, 5, 12)),
-    )
+    return WindowStats(count=count, status=status, last_submission=last_ts, dropped_rows=dropped)
 
 
 def _full_report():
     # refreshed_at is INSIDE current_window so day/threshold are well-defined.
+    last_ts = sgt(2026, 5, 5, 12)
     return FullReport(
         refreshed_at=sgt(2026, 5, 5, 14),
         current_window=(sgt(2026, 4, 29, 8), sgt(2026, 5, 6, 8)),
@@ -39,8 +32,8 @@ def _full_report():
             MemberReport(
                 name="Jet",
                 fetch_failed=None,
-                current=_wr(7, "done", 7, "done"),
-                previous=_wr(8, "done", 7, "done"),
+                current=_stats(7, "done", last_ts=last_ts),
+                previous=_stats(7, "done", last_ts=last_ts),
             ),
             MemberReport(
                 name="Aillyn",
@@ -71,11 +64,10 @@ def test_to_payload_windows_block():
 def test_to_payload_member_with_data():
     p = to_payload(_full_report())
     jet = next(m for m in p["members"] if m["name"] == "Jet")
-    assert jet["current"]["raw"]["count"] == 7
-    assert jet["current"]["raw"]["status"] == "done"
-    assert jet["current"]["raw"]["last_submission"].endswith("+08:00")
-    assert jet["current"]["raw"]["dropped_rows"] == 0
-    assert jet["current"]["dedup"]["count"] == 7
+    assert jet["current"]["count"] == 7
+    assert jet["current"]["status"] == "done"
+    assert jet["current"]["last_submission"].endswith("+08:00")
+    assert jet["current"]["dropped_rows"] == 0
     assert "fetch_failed" not in jet
 
 

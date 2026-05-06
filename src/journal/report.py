@@ -12,7 +12,7 @@ TARGET = 7
 
 
 @dataclass(frozen=True)
-class ModeStats:
+class WindowStats:
     count: int
     status: Status
     last_submission: datetime | None
@@ -20,17 +20,11 @@ class ModeStats:
 
 
 @dataclass(frozen=True)
-class WindowReport:
-    raw: ModeStats
-    dedup: ModeStats
-
-
-@dataclass(frozen=True)
 class MemberReport:
     name: str
     fetch_failed: str | None
-    current: WindowReport | None
-    previous: WindowReport | None
+    current: WindowStats | None
+    previous: WindowStats | None
 
     @classmethod
     def from_search_failure(cls, name: str, error: str) -> "MemberReport":
@@ -49,31 +43,22 @@ def _status_previous(count: int) -> Status:
     return "done" if count >= TARGET else "behind"
 
 
-def _build_window_report(
+def _build_window_stats(
     rows: list[Row],
     hashes_by_id: dict[str, str],
     dropped: int,
     is_current: bool,
     now: datetime,
     window: tuple[datetime, datetime],
-) -> WindowReport:
+) -> WindowStats:
     survivors = [r for r in rows if r.entry_id in hashes_by_id]
-    raw_count = len(survivors)
-    deduped_count = dedup_count([hashes_by_id[r.entry_id] for r in survivors])
+    count = dedup_count([hashes_by_id[r.entry_id] for r in survivors])
     last_ts = max((r.submission_ts for r in survivors), default=None)
-
     if is_current:
-        t = threshold(now, window)
-        raw_status = _status_current(raw_count, t)
-        dedup_status = _status_current(deduped_count, t)
+        status = _status_current(count, threshold(now, window))
     else:
-        raw_status = _status_previous(raw_count)
-        dedup_status = _status_previous(deduped_count)
-
-    return WindowReport(
-        raw=ModeStats(count=raw_count, status=raw_status, last_submission=last_ts, dropped_rows=dropped),
-        dedup=ModeStats(count=deduped_count, status=dedup_status, last_submission=last_ts, dropped_rows=dropped),
-    )
+        status = _status_previous(count)
+    return WindowStats(count=count, status=status, last_submission=last_ts, dropped_rows=dropped)
 
 
 def build_member_report(
@@ -112,10 +97,10 @@ def build_member_report(
         cache.put(r.entry_id, h)
         hashes[r.entry_id] = h
 
-    cur_report = _build_window_report(in_cur, hashes, dropped_cur, is_current=True, now=now, window=cur)
-    prev_report = _build_window_report(in_prev, hashes, dropped_prev, is_current=False, now=now, window=prev)
+    cur_stats = _build_window_stats(in_cur, hashes, dropped_cur, is_current=True, now=now, window=cur)
+    prev_stats = _build_window_stats(in_prev, hashes, dropped_prev, is_current=False, now=now, window=prev)
 
-    return MemberReport(name=name, fetch_failed=None, current=cur_report, previous=prev_report)
+    return MemberReport(name=name, fetch_failed=None, current=cur_stats, previous=prev_stats)
 
 
 @dataclass(frozen=True)

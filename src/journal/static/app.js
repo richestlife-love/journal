@@ -47,15 +47,14 @@
     return d > 0 ? `Deadline in ${d}d ${h % 24}h` : `Deadline in ${h}h`;
   }
 
-  function memberRow(m, mode, isCurrent) {
+  function memberRow(m, isCurrent) {
     const tr = document.createElement("tr");
     if (m.fetch_failed) {
       tr.innerHTML = `<td>${escapeHtml(m.name)}</td><td class="count">?/7</td>` +
         `<td class="status-failed" title="${escapeHtml(m.fetch_failed)}">${STATUS_LABEL.failed}</td><td>—</td>`;
       return { tr, statusKey: "failed", count: -1 };
     }
-    const w = isCurrent ? m.current : m.previous;
-    const stats = w[mode];
+    const stats = isCurrent ? m.current : m.previous;
     const count = stats.count;
     const status = stats.status;
     const warn = stats.dropped_rows > 0
@@ -83,18 +82,14 @@
     });
   }
 
-  function renderTable(sectionId, members, mode, isCurrent) {
+  function renderTable(sectionId, members, isCurrent) {
     const tbody = document.querySelector(`#${sectionId} tbody`);
     tbody.innerHTML = "";
-    const rows = members.map((m) => memberRow(m, mode, isCurrent));
+    const rows = members.map((m) => memberRow(m, isCurrent));
     sortMembers(rows).forEach((r) => tbody.appendChild(r.tr));
   }
 
   function render() {
-    const mode = document.body.dataset.mode === "raw" ? "raw" : "dedup";
-    document.getElementById("toggle-on").classList.toggle("active", mode === "dedup");
-    document.getElementById("toggle-off").classList.toggle("active", mode === "raw");
-
     document.getElementById("refreshed").textContent = fmtRefreshed(data.refreshed_at);
 
     const cur = data.windows.current;
@@ -103,20 +98,9 @@
       `${fmtWindow(cur)} • Day ${cur.day} of 7 (threshold ${cur.threshold}) • ${fmtCountdown(cur.end, Date.now())}`;
     document.querySelector("#previous .window-meta").textContent = fmtWindow(prev);
 
-    renderTable("current", data.members, mode, true);
-    renderTable("previous", data.members, mode, false);
+    renderTable("current", data.members, true);
+    renderTable("previous", data.members, false);
   }
-
-  document.getElementById("toggle-on").addEventListener("click", (e) => {
-    e.preventDefault();
-    document.body.dataset.mode = "dedup";
-    render();
-  });
-  document.getElementById("toggle-off").addEventListener("click", (e) => {
-    e.preventDefault();
-    document.body.dataset.mode = "raw";
-    render();
-  });
 
   render();
 })();

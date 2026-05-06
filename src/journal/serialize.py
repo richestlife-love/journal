@@ -3,7 +3,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from .report import FullReport, MemberReport, ModeStats, WindowReport
+from .report import FullReport, MemberReport, WindowStats
 from .window import day_number, threshold
 
 PAYLOAD_VERSION = 1
@@ -13,7 +13,9 @@ def _iso(dt: datetime | None) -> str | None:
     return dt.isoformat() if dt is not None else None
 
 
-def _mode_stats(s: ModeStats) -> dict:
+def _window_stats(s: WindowStats | None) -> dict | None:
+    if s is None:
+        return None
     return {
         "count": s.count,
         "status": s.status,
@@ -22,17 +24,11 @@ def _mode_stats(s: ModeStats) -> dict:
     }
 
 
-def _window_report(w: WindowReport | None) -> dict | None:
-    if w is None:
-        return None
-    return {"raw": _mode_stats(w.raw), "dedup": _mode_stats(w.dedup)}
-
-
 def _member(m: MemberReport) -> dict:
     base = {
         "name": m.name,
-        "current": _window_report(m.current),
-        "previous": _window_report(m.previous),
+        "current": _window_stats(m.current),
+        "previous": _window_stats(m.previous),
     }
     if m.fetch_failed is not None:
         base["fetch_failed"] = m.fetch_failed
