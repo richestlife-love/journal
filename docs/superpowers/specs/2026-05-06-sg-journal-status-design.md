@@ -85,8 +85,10 @@ For the **current in-progress week** (with `threshold` as defined above):
 | Condition | Status |
 |---|---|
 | `count >= 7` | **✓ Done** |
-| `count < 7 && count >= threshold` | **→ On track** |
-| `count < threshold` | **✗ Behind** |
+| `count < 7 && count > threshold` | **→ On track** |
+| `count <= threshold` | **✗ Behind** |
+
+Note: this is the strict-pace interpretation. At each 8am SGT day boundary the threshold steps up, and members are Behind until they make a *new* submission to overtake it. At Wed 08:00 (threshold 0), a member with 0 submissions is already Behind.
 
 For the **last completed week**, the window has closed so only two states apply:
 
