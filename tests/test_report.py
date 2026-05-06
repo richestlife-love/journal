@@ -190,3 +190,90 @@ def test_previous_window_status_only_done_or_behind(tmp_path):
     rep = build_member_report("Jet", rows, now, cache=cache, fetch_body=fetcher)
     assert rep.previous.dedup.status in ("done", "behind")
     assert rep.previous.dedup.status == "behind"  # 3 < 7
+
+
+from journal.report import build_full_report, FullReport
+
+
+def test_full_report_aggregates_all_members(tmp_path):
+    cache = EntryCache.load(tmp_path / "c.json")
+    now = sgt(2026, 5, 5, 12, 0)
+
+    members = ["A", "B"]
+    rows_by_member = {
+        "A": [make_row("a1", sgt(2026, 5, 1, 9, 0))],
+        "B": [make_row("b1", sgt(2026, 5, 1, 9, 0))],
+    }
+    bodies = {"a1": "x", "b1": "y"}
+
+    def fetch_search(member, start, end):
+        return rows_by_member[member]
+
+    def fetch_body(url):
+        return bodies[url.rsplit("/", 2)[-2]]
+
+    rep = build_full_report(
+        members=members,
+        now=now,
+        cache=cache,
+        fetch_search=fetch_search,
+        fetch_body=fetch_body,
+    )
+
+    assert isinstance(rep, FullReport)
+    assert rep.refreshed_at == now
+    assert {m.name for m in rep.members} == {"A", "B"}
+
+
+def test_full_report_member_search_failure_does_not_kill_run(tmp_path):
+    cache = EntryCache.load(tmp_path / "c.json")
+    now = sgt(2026, 5, 5, 12, 0)
+
+    def fetch_search(member, start, end):
+        if member == "B":
+            raise httpx.HTTPError("502")
+        return [make_row("a1", sgt(2026, 5, 1, 9, 0))]
+
+    def fetch_body(url):
+        return "body"
+
+    rep = build_full_report(
+        members=["A", "B"],
+        now=now,
+        cache=cache,
+        fetch_search=fetch_search,
+        fetch_body=fetch_body,
+    )
+    by_name = {m.name: m for m in rep.members}
+    assert by_name["A"].fetch_failed is None
+    assert by_name["B"].fetch_failed is not None
+    assert "502" in by_name["B"].fetch_failed
+
+
+def test_full_report_uses_combined_date_range_for_search(tmp_path):
+    cache = EntryCache.load(tmp_path / "c.json")
+    now = sgt(2026, 5, 5, 12, 0)
+
+    captured = {}
+
+    def fetch_search(member, start, end):
+        captured["start"] = start
+        captured["end"] = end
+        return []
+
+    def fetch_body(url):
+        return ""
+
+    build_full_report(
+        members=["A"],
+        now=now,
+        cache=cache,
+        fetch_search=fetch_search,
+        fetch_body=fetch_body,
+    )
+
+    # Range must cover both windows: previous starts on 2026-04-22 (Wed),
+    # current ends on 2026-05-05 (day before current window boundary at 08:00 on May 6).
+    from datetime import date
+    assert captured["start"] == date(2026, 4, 22)
+    assert captured["end"] == date(2026, 5, 5)

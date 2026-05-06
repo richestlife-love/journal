@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from typing import Callable, Literal
 
 from .cache import EntryCache
@@ -116,3 +116,51 @@ def build_member_report(
     prev_report = _build_window_report(in_prev, hashes, dropped_prev, is_current=False, now=now, window=prev)
 
     return MemberReport(name=name, fetch_failed=None, current=cur_report, previous=prev_report)
+
+
+@dataclass(frozen=True)
+class FullReport:
+    refreshed_at: datetime
+    current_window: tuple[datetime, datetime]
+    previous_window: tuple[datetime, datetime]
+    members: list[MemberReport]
+
+
+def _calendar_range(prev: tuple[datetime, datetime], cur: tuple[datetime, datetime]) -> tuple[date, date]:
+    """Calendar-day GET range that covers both windows. End is inclusive."""
+    start = prev[0].date()
+    # cur[1] is exclusive (the start of the next window), so we search up to the day before
+    end = (cur[1] - timedelta(days=1)).date()
+    return start, end
+
+
+def build_full_report(
+    *,
+    members: list[str],
+    now: datetime,
+    cache: EntryCache,
+    fetch_search: Callable[[str, date, date], list[Row]],
+    fetch_body: Callable[[str], str],
+) -> FullReport:
+    """Run the full scrape: one search per member, one report per member."""
+    cur = current_window(now)
+    prev = previous_window(now)
+    start_d, end_d = _calendar_range(prev, cur)
+
+    member_reports: list[MemberReport] = []
+    for name in members:
+        try:
+            rows = fetch_search(name, start_d, end_d)
+        except Exception as e:
+            member_reports.append(MemberReport.from_search_failure(name, repr(e)))
+            continue
+        member_reports.append(
+            build_member_report(name, rows, now, cache=cache, fetch_body=fetch_body)
+        )
+
+    return FullReport(
+        refreshed_at=now,
+        current_window=cur,
+        previous_window=prev,
+        members=member_reports,
+    )
