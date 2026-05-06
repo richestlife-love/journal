@@ -6,8 +6,6 @@ from pathlib import Path
 from .report import FullReport, MemberReport, WindowStats
 from .window import day_number, threshold
 
-PAYLOAD_VERSION = 2
-
 
 def _iso(dt: datetime | None) -> str | None:
     return dt.isoformat() if dt is not None else None
@@ -40,7 +38,6 @@ def to_payload(report: FullReport) -> dict:
     prev_start, prev_end = report.previous_window
 
     return {
-        "version": PAYLOAD_VERSION,
         "refreshed_at": report.refreshed_at.isoformat(),
         "windows": {
             "current": {

@@ -34,7 +34,7 @@ jobs:
             git -C .cache fetch --depth 1 origin cache
             git -C .cache checkout cache
           else
-            echo '{"version": 1, "entries": {}}' > .cache/cache.json
+            echo '{"entries": {}}' > .cache/cache.json
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

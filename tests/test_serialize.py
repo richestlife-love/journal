@@ -47,7 +47,7 @@ def _full_report():
 
 def test_to_payload_top_level_keys():
     p = to_payload(_full_report())
-    assert set(p.keys()) == {"version", "refreshed_at", "windows", "members"}
+    assert set(p.keys()) == {"refreshed_at", "windows", "members"}
 
 
 def test_to_payload_windows_block():

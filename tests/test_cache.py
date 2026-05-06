@@ -1,8 +1,6 @@
 import json
 
-import pytest
-
-from journal.cache import EntryCache, CACHE_VERSION
+from journal.cache import EntryCache
 
 
 def test_load_missing_file_returns_empty(tmp_path):
@@ -40,7 +38,6 @@ def test_saved_file_has_expected_schema(tmp_path):
     c.save()
 
     raw = json.loads(path.read_text())
-    assert raw["version"] == CACHE_VERSION
     assert raw["entries"] == {"123": "sha256:abc"}
 
 
@@ -49,13 +46,6 @@ def test_malformed_json_falls_back_to_empty(tmp_path):
     path.write_text("not json at all")
     c = EntryCache.load(path)
     assert c.get("123") is None
-
-
-def test_wrong_version_falls_back_to_empty(tmp_path):
-    path = tmp_path / "x.json"
-    path.write_text(json.dumps({"version": 99, "entries": {"x": "sha256:y"}}))
-    c = EntryCache.load(path)
-    assert c.get("x") is None
 
 
 def test_save_creates_parent_directories(tmp_path):

@@ -42,7 +42,6 @@ def test_build_end_to_end_with_mocked_http(tmp_path):
 
     assert rc == 0
     payload = json.loads((out / "data.json").read_text())
-    assert payload["version"] == 2
     assert any(m["name"] == "Jet" for m in payload["members"])
     assert (out / "index.html").exists()
     assert (out / "app.js").read_text() == "// app"
