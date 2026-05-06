@@ -166,7 +166,7 @@ GitHub Actions (cron + manual)
 src/journal/
   __init__.py
   __main__.py          # CLI: `uv run python -m journal build [--out site]`
-  client.py            # httpx fetch + selectolax parse for search page and entry page
+  client.py            # httpx fetch + BeautifulSoup4 parse for search page and entry page
   window.py            # SGT 8am-Wed window math, day numbering, threshold
   dedup.py             # body normalization (HTML strip + whitespace collapse) + grouping
   report.py            # per-member aggregate (count, last_submission, status) for both modes
@@ -223,6 +223,6 @@ site/                   # build output, gitignored
 
 ## Dependencies
 
-- Runtime: `httpx`, `selectolax`, `jinja2`. Stdlib `zoneinfo`, `hashlib`, `datetime`.
+- Runtime: `httpx`, `beautifulsoup4` (with `lxml` parser), `jinja2`. Stdlib `zoneinfo`, `hashlib`, `datetime`.
 - Dev: `pytest`.
 - Python 3.14, managed by `uv` (already pinned in `.python-version` and `pyproject.toml`).
