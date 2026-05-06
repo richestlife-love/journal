@@ -1,9 +1,12 @@
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
+import httpx
 from selectolax.parser import HTMLParser
+
+from .dedup import normalize_body
 
 _SGT = ZoneInfo("Asia/Singapore")
 _TS_RE = re.compile(r"(\d{4})-(\d{2})-(\d{2})\s+at\s+(\d{2}):(\d{2})")
@@ -78,3 +81,51 @@ def parse_search_rows(html: str) -> list[Row]:
             preview=preview,
         ))
     return rows
+
+
+SEARCH_URL = "https://writexperience.richestlife.com/sg-check-experience/"
+
+
+def parse_entry_body(html: str) -> str:
+    """Extract and normalize the journal body from an entry detail page.
+
+    Selector: `.gv-field-7-15` is the "心得" body field rendered in the entry view.
+    Returns the empty string if absent.
+    """
+    tree = HTMLParser(html)
+    field = tree.css_first(".gv-field-7-15")
+    if field is None:
+        return ""
+    return normalize_body(field.html or "")
+
+
+def fetch_member_list(client: httpx.Client) -> list[str]:
+    """GET the search page and parse the SG member dropdown."""
+    resp = client.get(SEARCH_URL)
+    resp.raise_for_status()
+    return parse_member_list(resp.text)
+
+
+def fetch_search(
+    client: httpx.Client,
+    member: str,
+    start: date,
+    end: date,
+) -> list[Row]:
+    """GET the search results for a single member and date range."""
+    params = {
+        "filter_3[start]": start.strftime("%m/%d/%Y"),
+        "filter_3[end]":   end.strftime("%m/%d/%Y"),
+        "filter_11":       member,
+        "mode":            "all",
+    }
+    resp = client.get(SEARCH_URL, params=params)
+    resp.raise_for_status()
+    return parse_search_rows(resp.text)
+
+
+def fetch_entry_body(client: httpx.Client, entry_url: str) -> str:
+    """GET an entry page and return its normalized body text."""
+    resp = client.get(entry_url)
+    resp.raise_for_status()
+    return parse_entry_body(resp.text)
