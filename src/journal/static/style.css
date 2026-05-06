@@ -114,6 +114,7 @@ body {
 .actions {
   margin-top: 1.4rem;
   display: flex;
+  justify-content: space-evenly;
   gap: 0.6rem;
   flex-wrap: wrap;
 }
