@@ -1,3 +1,4 @@
+# ty: ignore[unresolved-attribute]
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
