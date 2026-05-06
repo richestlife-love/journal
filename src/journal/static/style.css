@@ -1,13 +1,12 @@
 :root {
-  --paper: #fcfaf3;
+  --paper: #fefdf8;
   --ink: #1c1611;
   --ink-soft: #4a3f31;
   --ink-faint: #8b7d6a;
   --rule: #c9bfa6;
   --rule-soft: #d9d0b8;
-  --accent: #daa520;
-  --oxblood: #8a4623;
-  --light-brown: #8c6537;
+  --accent: #8a4623;
+  --gold: #daa520;
 
   --done:     #355e3b;
   --on-track: #a07020;
@@ -108,7 +107,7 @@ body {
   font-style: italic;
   font-weight: 400;
   font-variation-settings: "opsz" 144, "SOFT" 100, "WONK" 1;
-  color: var(--accent);
+  color: var(--gold);
   margin-left: 0.04em;
 }
 
@@ -138,16 +137,16 @@ body {
 }
 
 .action.primary {
-  background: var(--light-brown);
+  background: var(--gold);
   color: var(--paper);
-  border-color: var(--light-brown);
+  border-color: var(--gold);
 }
 
 .action:hover,
 .action:focus-visible {
-  background: var(--oxblood);
+  background: var(--accent);
   color: var(--paper);
-  border-color: var(--oxblood);
+  border-color: var(--accent);
   outline: none;
 }
 
@@ -265,7 +264,7 @@ body {
 .pip.today {
   background: var(--accent);
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(218,165,32,0.28);
+  box-shadow: 0 0 0 3px rgba(138,70,35,0.28);
 }
 
 .progress-meta {
