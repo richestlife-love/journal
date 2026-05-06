@@ -115,13 +115,13 @@
 
   function sortEntries(rows) {
     return rows.sort((a, b) => {
-      const r = STATUS_RANK[a.statusKey] - STATUS_RANK[b.statusKey];
+      const r = STATUS_RANK[b.statusKey] - STATUS_RANK[a.statusKey];
       if (r !== 0) return r;
       if (a.statusKey !== "done") {
-        const c = a.count - b.count;
+        const c = b.count - a.count;
         if (c !== 0) return c;
       }
-      return a.m.name.localeCompare(b.m.name);
+      return b.m.name.localeCompare(a.m.name);
     });
   }
 
