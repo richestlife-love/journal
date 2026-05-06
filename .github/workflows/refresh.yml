@@ -3,11 +3,13 @@ name: Refresh
 on:
   schedule:
     - cron: "*/5 * * * *"
+  push:
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
   group: refresh
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -73,12 +75,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Pages artifact
-        if: steps.cache_push.outputs.changed == 'true'
+        if: steps.cache_push.outputs.changed == 'true' || github.event_name != 'schedule'
         uses: actions/upload-pages-artifact@v3
         with:
           path: site
 
       - name: Deploy to GitHub Pages
         id: deploy
-        if: steps.cache_push.outputs.changed == 'true'
+        if: steps.cache_push.outputs.changed == 'true' || github.event_name != 'schedule'
         uses: actions/deploy-pages@v4
