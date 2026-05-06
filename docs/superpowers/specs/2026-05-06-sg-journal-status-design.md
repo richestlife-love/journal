@@ -147,7 +147,9 @@ A single static HTML page with two stacked tables.
 
 **Sort order (each table)**: `⚠ Fetch failed` first (alphabetical), then `✗ Behind` by ascending count then alphabetical, then `→ On track` by ascending count, then `✓ Done` alphabetical. Members with partial entry-fetch failures (the row-level `⚠` indicator) are not promoted by the sort — they sort by their surviving count under the normal status bucket.
 
-**Dedup toggle**: a small `[on]/[off]` link in the header flips between deduped and raw counts. Implementation: data for both views is embedded once as JSON in a `<script type="application/json">` tag, and ~10 lines of vanilla JS swap the displayed numbers and re-sort. No framework.
+**Rendering model**: the page is rendered entirely in the browser. The Python build emits a static `index.html` skeleton (header chrome, two empty `<section>`s for the two tables, the toggle link, and a `<script type="application/json" id="data">…</script>` tag carrying both deduped and raw stats). On load, ~30 lines of vanilla JS parse the JSON and populate both tables. No framework, no Jinja2.
+
+**Dedup toggle**: clicking `[on]/[off]` re-runs the same render function with the alternate count field. State held in a `data-mode` attribute on `<body>` for CSS hooks; default is `dedup`.
 
 **Mobile**: tables remain full-width with horizontal scroll if needed. No special mobile design beyond reasonable CSS defaults.
 
@@ -171,7 +173,7 @@ GitHub Actions (cron + manual, concurrency: refresh)
        ├── dedup per (member, window) by body hash
        ├── compute count, last submission, status (per dedup mode)
        ├── save cache.json
-       └── render site/index.html and site/data.json
+       └── write site/data.json + copy static/{index.html,app.js,style.css} → site/
   ├── commit + push cache.json to cache branch (if changed)
   └── actions/deploy-pages → GitHub Pages
 ```
@@ -191,10 +193,10 @@ src/journal/
   window.py            # SGT 8am-Wed window math, day numbering, threshold
   dedup.py             # body normalization (HTML strip + whitespace collapse) + grouping
   report.py            # per-member aggregate (count, last_submission, status) for both modes
-  render.py            # jinja2 → site/index.html + site/data.json
-  templates/
-    index.html.j2
+  serialize.py         # build the JSON payload and copy static assets to site/
   static/
+    index.html         # skeleton: header, two empty <section>s, embedded JSON tag, <script src="app.js">
+    app.js             # ~30 lines vanilla JS — parse embedded JSON, render rows, wire toggle
     style.css
 tests/
   fixtures/
@@ -218,9 +220,10 @@ site/                   # build output, gitignored
 - `cache.py` — `EntryCache.load(path) -> EntryCache`, `get(entry_id) -> str | None`, `put(entry_id, hash_) -> None`, `save() -> None`. JSON file backed. No invalidation. Knows nothing about windows or members.
 - `window.py` — time-only logic: `current_window(now) -> (start, end)`, `previous_window(now) -> (start, end)`, `day_number(t, window) -> int (1..7)`, `threshold(t, window) -> int (0..7)`. All datetimes are SGT-aware (`zoneinfo("Asia/Singapore")`).
 - `dedup.py` — `normalize_body(html_or_text: str) -> str`, `body_hash(text: str) -> str`, `dedup_count(hashes: list[str]) -> int`. Pure functions; takes already-fetched-or-cached hashes.
-- `report.py` — composes the above to produce, per member per window, both deduped and raw counts, last-submission timestamp, and status. Calls `cache.get` first; only invokes `client.fetch_entry_body` on cache miss.
-- `render.py` — jinja2 template + JSON serializer. Owns formatting (e.g. relative time, "Day N of 7", deadline countdown).
-- `__main__.py` — wires the pieces, handles CLI flags (`--cache <path>`, `--out <dir>`), exits non-zero on catastrophic failures (e.g. cannot reach the platform at all).
+- `report.py` — composes the above to produce, per member per window, both deduped and raw counts, last-submission timestamp, and status. Calls `cache.get` first; only invokes `client.fetch_entry_body` on cache miss. Returns plain Python data (no formatting).
+- `serialize.py` — `to_payload(report, now) -> dict` building the JSON payload (windows, refresh timestamp, day-N + threshold, per-member rows for both modes), and `write_site(payload, static_dir, out_dir)` which writes `data.json` and copies `index.html`, `app.js`, `style.css`. All human-facing formatting (relative times, "Day N of 7", deadline countdown) is done in JS, not here — this module deals only in machine-readable values (ISO timestamps, integers).
+- `static/app.js` — runs on page load. Reads the JSON from `<script type="application/json" id="data">`, computes display strings (relative time, countdown), builds two tables, wires the dedup toggle to re-render in the alternate mode. Self-contained; no module loader.
+- `__main__.py` — wires the pieces, handles CLI flags (`--cache <path>`, `--out <dir>`, `--static <dir>`), exits non-zero on catastrophic failures (e.g. cannot reach the platform at all).
 
 ## Error handling
 
@@ -239,6 +242,8 @@ Failures are graded by what failed:
 - **Dedup tests** cover: identical text, identical text with different whitespace, identical text with different HTML wrapping, two truly distinct journals.
 - **Cache tests** cover: hit returns stored hash without invoking fetcher, miss invokes fetcher and persists, save+reload round-trips, malformed/missing file degrades to empty cache.
 - **Report tests** verify status transitions across all (count, threshold) cells.
+- **Serialize tests** snapshot the `data.json` payload shape (keys, types, value ranges) given a fixed `report` and `now`. Format-of-display strings live in JS, so they're not exercised here.
+- **JS rendering**: not exercised by the Python test suite in v1. Verified by a manual smoke test (`python -m http.server` over `site/` after a build, open in a browser, confirm both tables render and the toggle flips counts/sorts). A headless-browser test can be added later if regressions appear.
 - No live network in tests. The HTTP layer is mocked or the parser is fed fixtures directly.
 
 ## Out of scope (not in v1)
@@ -250,6 +255,6 @@ Failures are graded by what failed:
 
 ## Dependencies
 
-- Runtime: `httpx`, `selectolax`, `jinja2`. Stdlib `zoneinfo`, `hashlib`, `datetime`.
+- Runtime: `httpx`, `selectolax`. Stdlib `zoneinfo`, `hashlib`, `datetime`, `json`, `shutil`.
 - Dev: `pytest`.
 - Python 3.14, managed by `uv` (already pinned in `.python-version` and `pyproject.toml`).
