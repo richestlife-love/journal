@@ -13,7 +13,6 @@ Then open `site/index.html`. Flags:
 
 - `--cache` — path to the JSON cache (created on first run)
 - `--out` — output directory
-- `--static` — override the static asset directory (default: `src/journal/static/`)
 
 ## Tests
 

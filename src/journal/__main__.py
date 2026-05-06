@@ -53,11 +53,10 @@ def main(argv: list[str] | None = None) -> int:
     b = sub.add_parser("build", help="Scrape and write site/")
     b.add_argument("--cache", type=Path, default=Path("cache.json"))
     b.add_argument("--out", type=Path, default=Path("site"))
-    b.add_argument("--static", type=Path, default=here / "static")
 
     args = p.parse_args(argv)
     if args.cmd == "build":
-        return build(cache_path=args.cache, out_dir=args.out, static_dir=args.static)
+        return build(cache_path=args.cache, out_dir=args.out, static_dir=here / "static")
     return 2
 
 
