@@ -40,7 +40,7 @@ A member's submission count for a given window is the number of **distinct journ
 
 - **Window** is half-open: `[Wed 08:00 SGT, next Wed 08:00 SGT)`.
 - **Distinct content** is defined by hashing the **full plain-text body** of the journal entry (fetched from each row's entry URL — column 2's `<a href>`), after normalizing whitespace and stripping HTML.
-- A boolean toggle disables dedup and falls back to raw row count. The toggle is exposed in the UI.
+- A boolean toggle disables dedup and falls back to raw row count. The toggle is exposed in the UI. **Default: dedup on.**
 
 The truncated preview in the search-results table is **not** sufficient for dedup — we fetch each in-window entry's full page to extract the body.
 
@@ -51,9 +51,11 @@ Entries on the source platform are immutable (assumed). We cache the normalized-
 - Storage: a single `cache.json` file on a dedicated `cache` orphan branch in the same repo.
 - Schema: `{ "version": 1, "entries": { "<entry_id>": "sha256:<hex>" } }`.
 - Lookup flow per row: if `entry_id` is in the cache, reuse the hash; otherwise fetch the entry page, compute the hash, write it back.
-- After warm-up, only new entries are fetched (~20–40 entries per hourly run vs. ~400–600 cold).
+- After warm-up, only new entries are fetched: typically **0–5 fetches per hourly run**, peaking at **20–40** during the Tue-night → Wed-morning rush. Cold first run fetches ~400–600.
 - No TTL, no `fetched_at`, no pruning. Cache size at scale is negligible (one short string per entry).
-- Workflow concurrency is set to a single in-flight refresh so the orphan branch has only one writer at a time.
+- **First-run / missing-cache fallback**: if the `cache` branch does not exist, or `cache.json` is missing/malformed/wrong `version`, the build proceeds with an empty in-memory cache and writes a fresh `cache.json` at the end. No error.
+- **Workflow concurrency**: `concurrency: { group: refresh, cancel-in-progress: false }` so the orphan branch has only one writer at a time.
+- **Workflow permissions**: needs `permissions: { contents: write, pages: write, id-token: write }` — `contents: write` for the cache-branch push, the latter two for the Pages deploy.
 
 ## Day numbering and "on track" threshold
 
@@ -143,7 +145,7 @@ A single static HTML page with two stacked tables.
 - *Status* — `✓ Done`, `→ On track`, or `✗ Behind` (current week); `✓ Done` or `✗ Behind` (last completed week).
 - *Last submission* — relative time (e.g. "12 minutes ago", "3 hours ago", "yesterday at 14:32"). `—` if no submissions in window.
 
-**Sort order (each table)**: `⚠ Fetch failed` first (alphabetical), then `✗ Behind` by ascending count then alphabetical, then `→ On track` by ascending count, then `✓ Done` alphabetical.
+**Sort order (each table)**: `⚠ Fetch failed` first (alphabetical), then `✗ Behind` by ascending count then alphabetical, then `→ On track` by ascending count, then `✓ Done` alphabetical. Members with partial entry-fetch failures (the row-level `⚠` indicator) are not promoted by the sort — they sort by their surviving count under the normal status bucket.
 
 **Dedup toggle**: a small `[on]/[off]` link in the header flips between deduped and raw counts. Implementation: data for both views is embedded once as JSON in a `<script type="application/json">` tag, and ~10 lines of vanilla JS swap the displayed numbers and re-sort. No framework.
 
@@ -222,8 +224,12 @@ site/                   # build output, gitignored
 
 ## Error handling
 
-- **Per-member fetch failure** does not fail the run. The row renders as `?/7` with status `⚠ Fetch failed` and a tooltip describing the error. Failures are logged to GitHub Actions output.
-- **Catastrophic failure** (cannot fetch the search page itself, cannot parse member list) exits non-zero — the previous deployed page remains visible, with its older "Refreshed at …" timestamp making the staleness obvious.
+Failures are graded by what failed:
+
+- **Search-page fetch fails for a member** (i.e. we can't even list their submissions). The member's row in both tables renders `?/7` with status `⚠ Fetch failed` and a tooltip carrying the error. Sorted to the top.
+- **Entry-page fetch fails for a single row** (search succeeded, but one entry page errored). The row is dropped from that member's count for this run and a small `⚠` indicator appears next to the count (e.g. `4/7 ⚠`) with a tooltip listing the count of dropped rows. The member's status is still computed from the surviving rows. Count is therefore a lower bound, not an overcount; this is intentional. The cache is **not** populated for the failed entry, so the next run will retry.
+- **Catastrophic failure** (cannot fetch the search-page list of members at all, cannot parse `filter_11`) exits non-zero. The previous deployed page remains visible. The "Refreshed at …" timestamp shows the staleness.
+- All failures are logged to GitHub Actions output.
 - The HTML always includes the refresh timestamp prominently so visitors never get a silently stale view.
 
 ## Testing
