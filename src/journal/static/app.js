@@ -10,6 +10,16 @@
   const STATUS_RANK = { failed: 0, behind: 1, on_track: 2, done: 3 };
   const TOTAL_DAYS = 7;
 
+  const refreshedEl = document.getElementById("refreshed");
+  const weekHeadEl = document.getElementById("week-head");
+  const windowMetaEl = document.querySelector("#weeks .window-meta");
+  const progressEl = document.getElementById("progress");
+  const pipsEl = progressEl.querySelector(".pips");
+  const progressMetaEl = progressEl.querySelector(".progress-meta");
+  const membersOl = document.querySelector("#weeks [data-members]");
+  const prevBtn = document.querySelector(".nav-arrow.prev");
+  const nextBtn = document.querySelector(".nav-arrow.next");
+
   function fmtRefreshed(iso) {
     const d = new Date(iso);
     return `Refreshed ${d.toLocaleString("en-SG", {
@@ -20,16 +30,16 @@
 
   function fmtRelative(iso, now) {
     if (!iso) return "—";
-    const t = new Date(iso).getTime();
-    const diff = (now - t) / 1000;
+    const ms = new Date(iso).getTime();
+    const diff = (now - ms) / 1000;
     if (diff < 60) return "just now";
     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     if (diff < 86400 * 2) {
-      const t = new Date(iso).toLocaleTimeString("en-SG", {
+      const timeStr = new Date(iso).toLocaleTimeString("en-SG", {
         timeZone: "Asia/Singapore", hour: "2-digit", minute: "2-digit", hour12: false,
       });
-      return `yesterday · ${t}`;
+      return `yesterday · ${timeStr}`;
     }
     return `${Math.floor(diff / 86400)}d ago`;
   }
@@ -67,38 +77,37 @@
     return `<span class="track" aria-hidden="true">${html}</span>`;
   }
 
-  function memberEntry(m, isCurrent, idx) {
+  function memberEntry(m, isCurrent, now, animate) {
     const li = document.createElement("li");
-    li.className = "entry";
-    li.style.setProperty("--i", idx);
+    li.className = animate ? "entry settle" : "entry";
 
     if (m.fetch_failed) {
       li.classList.add("status-failed");
       li.innerHTML =
-        `<span class="num">${pad2(idx + 1)}</span>` +
+        `<span class="num"></span>` +
         `<span class="name">${escapeHtml(m.name)}</span>` +
         `<span class="count"><span class="number">?/7</span></span>` +
-        `<span class="status" data-tip="${escapeHtml(m.fetch_failed)}" title="${escapeHtml(m.fetch_failed)}">${STATUS_LABEL.failed} †</span>` +
+        `<span class="status" data-tip="${escapeHtml(m.fetch_failed)}">${STATUS_LABEL.failed} †</span>` +
         `<span class="last">—</span>`;
-      return { li, statusKey: "failed", count: -1, name: m.name };
+      return { li, statusKey: "failed", count: -1, m };
     }
 
     const stats = isCurrent ? m.current : m.previous;
     const { count, status, last_submission, dropped_rows } = stats;
     const warnMsg = `${dropped_rows} entry fetch(es) failed; skipped`;
     const warn = dropped_rows > 0
-      ? ` <span class="warn" data-tip="${escapeHtml(warnMsg)}" title="${escapeHtml(warnMsg)}">⚠</span>`
+      ? ` <span class="warn" data-tip="${escapeHtml(warnMsg)}">⚠</span>`
       : "";
 
     li.classList.add(`status-${status}`);
     li.innerHTML =
-      `<span class="num">${pad2(idx + 1)}</span>` +
+      `<span class="num"></span>` +
       `<span class="name">${escapeHtml(m.name)}</span>` +
       `<span class="count"><span class="number">${count}/7</span>${track(count)}</span>` +
       `<span class="status">${STATUS_LABEL[status]}${warn}</span>` +
-      `<span class="last">${fmtRelative(last_submission, Date.now())}</span>`;
+      `<span class="last">${fmtRelative(last_submission, now)}</span>`;
 
-    return { li, statusKey: status, count, name: m.name };
+    return { li, statusKey: status, count, m };
   }
 
   function sortEntries(rows) {
@@ -109,76 +118,69 @@
         const c = a.count - b.count;
         if (c !== 0) return c;
       }
-      return a.name.localeCompare(b.name);
+      return a.m.name.localeCompare(b.m.name);
     });
   }
 
-  function renderList(sectionId, members, isCurrent) {
-    const ol = document.querySelector(`#${sectionId} [data-members]`);
-    ol.innerHTML = "";
-    const rows = members.map((m, i) => memberEntry(m, isCurrent, i));
-    const sorted = sortEntries(rows);
-    sorted.forEach((r, i) => {
+  function renderList(members, isCurrent, now, animate) {
+    const rows = sortEntries(members.map((m) => memberEntry(m, isCurrent, now, animate)));
+    const frag = document.createDocumentFragment();
+    rows.forEach((r, i) => {
       r.li.style.setProperty("--i", i);
       r.li.querySelector(".num").textContent = pad2(i + 1);
-      ol.appendChild(r.li);
+      frag.appendChild(r.li);
     });
+    membersOl.replaceChildren(frag);
   }
 
-  function renderProgress(window, isCurrent) {
-    const wrap = document.getElementById("progress");
-    const pips = wrap.querySelector(".pips");
-    const meta = wrap.querySelector(".progress-meta");
-
-    pips.innerHTML = "";
-
-    if (isCurrent) {
-      const dayRaw = window.day;
-      const day = dayRaw == null ? 0 : Math.max(0, Math.min(dayRaw, TOTAL_DAYS));
-      for (let i = 1; i <= TOTAL_DAYS; i++) {
-        const pip = document.createElement("span");
-        pip.className = "pip";
-        if (i < day) pip.classList.add("filled");
-        else if (i === day) pip.classList.add("today");
-        pips.appendChild(pip);
-      }
-      const dayPart = dayRaw == null ? "Window closed" : `Day ${dayRaw} of ${TOTAL_DAYS}`;
-      meta.textContent = `${dayPart} · ${fmtCountdown(window.end, Date.now())}`;
+  function renderProgress(win, isCurrent, now) {
+    pipsEl.innerHTML = "";
+    const dayRaw = isCurrent ? win.day : null;
+    // Sentinel TOTAL_DAYS + 1 makes every pip "filled" for the previous-week view.
+    const day = isCurrent
+      ? (dayRaw == null ? 0 : Math.max(0, Math.min(dayRaw, TOTAL_DAYS)))
+      : TOTAL_DAYS + 1;
+    for (let i = 1; i <= TOTAL_DAYS; i++) {
+      const pip = document.createElement("span");
+      pip.className = "pip";
+      if (i < day) pip.classList.add("filled");
+      else if (i === day) pip.classList.add("today");
+      pipsEl.appendChild(pip);
+    }
+    if (!isCurrent) {
+      progressMetaEl.textContent = "Week complete";
     } else {
-      for (let i = 1; i <= TOTAL_DAYS; i++) {
-        const pip = document.createElement("span");
-        pip.className = "pip filled";
-        pips.appendChild(pip);
-      }
-      meta.textContent = "Week complete";
+      const dayPart = dayRaw == null ? "Window closed" : `Day ${dayRaw} of ${TOTAL_DAYS}`;
+      progressMetaEl.textContent = `${dayPart} · ${fmtCountdown(win.end, now)}`;
     }
   }
 
   let view = "current";
+  let firstPaint = true;
 
   function update() {
-    const cur = data.windows.current;
-    const prev = data.windows.previous;
     const isCurrent = view === "current";
-    const w = isCurrent ? cur : prev;
+    const win = isCurrent ? data.windows.current : data.windows.previous;
+    const now = Date.now();
 
-    document.getElementById("week-head").textContent = isCurrent ? "This Week" : "Last Week";
-    document.querySelector("#weeks .window-meta").textContent = fmtWindow(w);
+    weekHeadEl.textContent = isCurrent ? "This Week" : "Last Week";
+    windowMetaEl.textContent = fmtWindow(win);
 
-    renderProgress(w, isCurrent);
-    renderList("weeks", data.members, isCurrent);
+    renderProgress(win, isCurrent, now);
+    renderList(data.members, isCurrent, now, firstPaint);
+    firstPaint = false;
 
-    document.querySelector(".nav-arrow.prev").disabled = view === "previous";
-    document.querySelector(".nav-arrow.next").disabled = view === "current";
+    prevBtn.disabled = !isCurrent;
+    nextBtn.disabled = isCurrent;
   }
 
-  document.querySelector(".nav-arrow.prev").addEventListener("click", () => {
+  prevBtn.addEventListener("click", () => {
     if (view === "current") { view = "previous"; update(); }
   });
-  document.querySelector(".nav-arrow.next").addEventListener("click", () => {
+  nextBtn.addEventListener("click", () => {
     if (view === "previous") { view = "current"; update(); }
   });
 
-  document.getElementById("refreshed").textContent = fmtRefreshed(data.refreshed_at);
+  refreshedEl.textContent = fmtRefreshed(data.refreshed_at);
   update();
 })();

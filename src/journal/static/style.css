@@ -1,6 +1,5 @@
 :root {
   --paper: #f3ecdb;
-  --paper-warm: #ebe2cc;
   --ink: #1c1611;
   --ink-soft: #4a3f31;
   --ink-faint: #8b7d6a;
@@ -324,6 +323,9 @@ body {
   padding: 0.85rem 0;
   border-bottom: 1px dotted var(--rule);
   position: relative;
+}
+
+.entry.settle {
   opacity: 0;
   transform: translateY(4px);
   animation: settle 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
@@ -466,16 +468,13 @@ body {
   text-align: right;
 }
 
-/* status colors */
-.entry.status-done    .status { color: var(--done); }
-.entry.status-on_track .status { color: var(--on-track); }
-.entry.status-behind  .status { color: var(--behind); }
-.entry.status-failed  .status { color: var(--failed); }
+.entry.status-done     { --status-color: var(--done); }
+.entry.status-on_track { --status-color: var(--on-track); }
+.entry.status-behind   { --status-color: var(--behind); }
+.entry.status-failed   { --status-color: var(--failed); }
 
-.entry.status-done    .count .number { color: var(--done); }
-.entry.status-on_track .count .number { color: var(--on-track); }
-.entry.status-behind  .count .number { color: var(--behind); }
-.entry.status-failed  .count .number { color: var(--failed); }
+.entry .status,
+.entry .count .number { color: var(--status-color); }
 
 
 /* ─── Animations ───────────────────────────────────────── */
@@ -485,7 +484,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .entry { animation: none; opacity: 1; transform: none; }
+  .entry.settle { animation: none; opacity: 1; transform: none; }
 }
 
 /* ─── Mobile ───────────────────────────────────────────── */
